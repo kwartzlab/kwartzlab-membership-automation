@@ -1,7 +1,12 @@
+import json
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import config
 from typing import Dict, List, Any
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 def construct_application_blocks(
     label_values: Dict[str, Any],
@@ -16,11 +21,12 @@ def construct_application_blocks(
     pii_labels = [
         "First Name",
         "Last Name",
-        "Preferred First Name",
-        "Preferred Last Name",
+        # "Preferred First Name",
+        # "Preferred Last Name",
         "Preferred Pronouns",
         "Email Address",
     ]
+
 
     # exclude address fields
     exclude_labels = {
@@ -82,12 +88,42 @@ def construct_application_blocks(
     return {"blocks": blocks}
 
 
-def post_application(cfg: config.Config, applicant_data: dict) -> None:
+def applicant_data_to_dict(data: str) -> dict:
+    data_json = json.loads(data)
+    return_dict = {}
+    
+    for field in data_json.values():
+        label = field["label"]
+        value = field["value"]
+
+        # Currently making assumption that preferred first/last always come after.
+        # If that is not the case, will need to update this
+        if label == "Preferred First Name":
+            if value is not None and len(value) != 0:
+                label = "First Name"
+            else:
+                continue
+        elif label == "Preferred Last Name":
+            if value is not None and len(value) != 0:
+                label = "Last Name"
+            else:
+                continue
+        if value is None or len(value) == 0:
+            value = "--"
+
+        return_dict[label] = value
+
+    return return_dict
+
+
+
+def post_application(cfg: config.Config, applicant_data) -> None:
     client = WebClient(
         token=cfg.slack_bot_token
     )
     
-    blocks = construct_application_blocks(applicant_data)
+    blocks = construct_application_blocks(applicant_data_to_dict(applicant_data))
+    logger.info("Sending blocks to slack %s", blocks["blocks"])
 
     try:
         response = client.chat_postMessage(
@@ -95,5 +131,7 @@ def post_application(cfg: config.Config, applicant_data: dict) -> None:
             text=str(blocks),
             blocks=blocks["blocks"],
         )
+        logger.info("Response received: %s", response)
     except SlackApiError as e:
-        print(e.response["error"])
+        logger.error(e.response["error"])
+        raise e

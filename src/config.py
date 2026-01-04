@@ -30,6 +30,8 @@ class Config:
     # Environment
     environment: str
     debug: bool
+    
+    port: int
 
 
 def load_config() -> Config:
@@ -49,6 +51,9 @@ def load_config() -> Config:
         db_host=getenv("DB_HOST", required=True),
         db_port=getenv("DB_PORT", required=True),
         db_name=getenv("DB_DATABASE", required=True),
+
+        #API Service
+        port=int(getenv("PORT", 8080)),
 
         # Meta
         environment=env,

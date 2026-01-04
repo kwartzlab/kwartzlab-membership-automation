@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - kos-base_data-network
+networks:
+  kos-base_data-network:
+    external: true

@@ -23,9 +23,9 @@ GMAIL_API_VERSION = "v1"
 SENDER_USER_ID = "me"
 
 # Group / alias configuration
-GROUP_FROM_NAME = "Membership Coordinator"
-GROUP_FROM_EMAIL = "membership@kwartzlab.ca"
-GROUP_REPLY_TO = "membership@kwartzlab.ca"
+MEMBERSHIP_GROUP_FROM_NAME = "Membership Coordinator"
+MEMBERSHIP_GROUP_FROM_EMAIL = "membership@kwartzlab.ca"
+MEMBERSHIP_GROUP_REPLY_TO = "membership@kwartzlab.ca"
 
 def get_gmail_service():
     creds = None
@@ -79,26 +79,79 @@ def send_message(service, user_id: str, message: dict):
     )
 
 
+def build_email_with_template(to: str,
+                              from_name: str,
+                              from_email: str,
+                              email_template: email_templates.Email,
+                              template_vars,
+                              signature: str,
+                              reply_to: str = None,
+                              signature_name: str = ""):
+    
+    template_subject = email_template.subject
+    email_body = email_template.body.format(**template_vars)
+    email_body += signature.format(signature_name=signature_name)
+    
+    message = build_group_html_message(
+        to=to,
+        subject=template_subject,
+        text_body=email_body,
+        html_body=email_body,
+        from_name=from_name,
+        from_email=from_email,
+        reply_to=reply_to
+    )
 
+    return message
+
+
+def build_acceptance_email(user):
+    return build_email_with_template(
+            to=user["email"],
+            from_name=MEMBERSHIP_GROUP_FROM_NAME,
+            from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
+            email_template=email_templates.ACCEPTENCE_EMAIL,
+            template_vars={
+                "name": user["first_preferred"]
+            },
+            signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
+        )
+
+def build_return_visit_email(user):
+    return build_email_with_template(
+            to=user["email"],
+            from_name=MEMBERSHIP_GROUP_FROM_NAME,
+            from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
+            email_template=email_templates.RETURN_EMAIL,
+            template_vars={
+                "name": user["first_preferred"]
+            },
+            signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
+        )
+
+# Main only to test. This should not be run.
 if __name__ == "__main__":
+    
+    test_email_recevier = "saatvik.bhayana@kwartzlab.ca"
+    
     if not CREDENTIALS_FILE.exists():
         raise FileNotFoundError(f"Missing {CREDENTIALS_FILE}")
 
     service = get_gmail_service()
 
-    email_tempalte = email_templates.RETURN_EMAIL
+    email_template = email_templates.RETURN_EMAIL
 
-    welcome_email = email_tempalte.body.format(name="Saatvik")
-    signature = email_templates.SIGNATURE.format(membership_coordinator_name="Saatvik Bhayana")
+    welcome_email = email_template.body.format(name="FakeName")
+    signature = email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE.format(signature_name="Test Membership Coordinator")
     
     message = build_group_html_message(
-        to="saatvik.bhayana@kwartzlab.ca",
-        subject=email_tempalte.subject,
+        to=test_email_recevier,
+        subject=email_template.subject,
         text_body=welcome_email + signature,
         html_body=welcome_email + signature,
-        from_name=GROUP_FROM_NAME,
-        from_email=GROUP_FROM_EMAIL,
-        reply_to=GROUP_REPLY_TO,
+        from_name=MEMBERSHIP_GROUP_FROM_NAME,
+        from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
+        reply_to=MEMBERSHIP_GROUP_REPLY_TO,
     )
 
     response = send_message(service, SENDER_USER_ID, message)

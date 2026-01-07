@@ -4,8 +4,8 @@ from dataclasses import dataclass
 Use something like https://html5-editor.net/ to see and edit the format of the email in a more human way.
 """
 
-SIGNATURE: str = """
-{membership_coordinator_name}
+MEMBERSHIP_COORDINATOR_SIGNATURE: str = """
+{signature_name}
 <p>
     <b>Membership Coordinator</b>
 </p>
@@ -56,7 +56,7 @@ ACCEPTENCE_EMAIL: str = Email(
 
             <p><strong>Next steps:</strong></p>
 
-            <ol style="margin-left: 20px;">
+            <ol>
             <li>
                 Please pay your
                 <a href="https://www.kwartzlab.ca/membership-dues/">member dues</a>
@@ -85,7 +85,7 @@ ACCEPTENCE_EMAIL: str = Email(
 
             <p><strong>Some important links:</strong></p>
 
-            <ul style="margin-left: 20px;">
+            <ul>
             <li>How to pay your <a href="https://www.kwartzlab.ca/membership-dues/">member dues</a></li>
             <li>The <a href="https://www.kwartzlab.ca/areas">New Member Tour</a> page</li>
             <li><a href="https://drive.google.com/file/d/1fyYgTGRiWLfQ_FXas3FKzsQnG-7EwSkz/view">Getting Started with Slack: A guide for new users</a></li>
@@ -113,7 +113,7 @@ HIATUS_SUBMITTED_EMAIL = Email(
 
         <p><strong>Next steps:</strong></p>
 
-        <ol style="margin-left: 20px;">
+        <ol>
         <li>
             Please cancel your auto pay, if you are using it.
         </li>
@@ -156,7 +156,7 @@ HIATUS_APPROVED_EMAIL= Email(
                 including:
             </p>
 
-            <ul style="margin-left: 20px;">
+            <ul>
                 <li>All items from your locker, and the label on the outside</li>
                 <li>Any items in storage, free and paid</li>
                 <li>Items stored in the paint cabinet</li>
@@ -185,7 +185,7 @@ WITHDRAWAL_EMAIL = Email(
             including:
             </p>
 
-            <ul style="margin-left: 20px;">
+            <ul>
             <li>All items from your locker, and the label on the outside</li>
             <li>Any items in storage, free and paid</li>
             <li>Items stored in the paint cabinet</li>

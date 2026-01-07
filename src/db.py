@@ -79,53 +79,65 @@ MARK_FAILED_SQL = text("""
     WHERE id = :outbox_id
 """)
 
-def get_user_by_id(engine: Engine, user_id: int) -> dict:
+def get_user_by_id(conn, user_id: int) -> dict:
     """
     Get a single user given an id. Returns a dict representation of the row
     """
-    with engine.begin() as conn:
-        if user_id is None:
-            return None
-        row = conn.execute(FETCH_USER_BY_ID_SQL, {"user_id": user_id}).mappings().first()
-        return row
+    if user_id is None:
+        return None
+    row = conn.execute(FETCH_USER_BY_ID_SQL, {"user_id": user_id}).mappings().first()
+    return row
 
+
+def get_application_from_outbox(conn, outbox_id: int = None):
+    if outbox_id is None:
+        logger.info("Fetching next outbox item")
+        row = conn.execute(FETCH_NEXT_OUTBOX_SQL).mappings().first()
+    else: 
+        logger.info("Fetching outbox by id %s", outbox_id)
+        row = conn.execute(FETCH_OUTBOX_BY_ID_SQL, {"outbox_id": outbox_id}).mappings().first()
+
+    return row
         
+
+def mark_outbox_failed(conn, outbox_id: int, exc: Exception):
+    conn.execute(
+        MARK_FAILED_SQL,
+        {
+            "outbox_id": outbox_id,
+            "error": str(exc)[:1000],
+        },
+    )
+        
+def mark_outbox_success(conn, outbox_id: int):
+    conn.execute(
+        MARK_PROCESSED_SQL,
+        {"outbox_id": outbox_id},
+    )
+
 def process_one(engine: Engine, outbox_id: int = None) -> bool:
     """
     Process a single outbox row.
     Returns True if work was done, False if queue is empty.
     """
     with engine.begin() as conn:
-        if outbox_id is not None:
-            row = conn.execute(FETCH_OUTBOX_BY_ID_SQL, {"outbox_id": outbox_id}).mappings().first()
-        else: 
-            row = conn.execute(FETCH_NEXT_OUTBOX_SQL).mappings().first()
-
+        row  = get_application_from_outbox(conn=conn, outbox_id=outbox_id)
         if row is None:
             logging.info("Nothing to process, returning.")
             return False
 
         try:
-            logging.log("Processing submission %s", {row['form_submission_id']})
+            logging.info("Processing submission %s", {row['form_submission_id']})
             slack.post_application(
                 cfg=config.load_config(),
-                applicant_data=row["data"],
+                applicantion_data=row["data"],
             )
             
-            conn.execute(
-                MARK_PROCESSED_SQL,
-                {"outbox_id": row["outbox_id"]},
-            )
+            mark_outbox_success(conn=conn, outbox_id=row["outbox_id"])
 
         except Exception as exc:
-            logging.log("Failed to process outbox_id: %s", row["outbox_id"])
-            conn.execute(
-                MARK_FAILED_SQL,
-                {
-                    "outbox_id": row["outbox_id"],
-                    "error": str(exc)[:1000],
-                },
-            )
+            logging.error("Failed to process outbox_id: %s", row["outbox_id"])
+            mark_outbox_failed(conn=conn, outbox_id=outbox_id, exc=exc)
             raise
 
     return True

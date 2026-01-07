@@ -117,12 +117,12 @@ def applicant_data_to_dict(data: str) -> dict:
 
 
 
-def post_application(cfg: config.Config, applicant_data) -> None:
+def post_application(cfg: config.Config, applicantion_data) -> None:
     client = WebClient(
         token=cfg.slack_bot_token
     )
     
-    blocks = construct_application_blocks(applicant_data_to_dict(applicant_data))
+    blocks = construct_application_blocks(applicant_data_to_dict(applicantion_data))
     logger.info("Sending blocks to slack %s", blocks["blocks"])
 
     try:

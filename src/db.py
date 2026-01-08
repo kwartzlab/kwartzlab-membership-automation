@@ -62,7 +62,7 @@ FETCH_OUTBOX_BY_ID_SQL = text("""
     FROM form_submission_outbox o
     JOIN form_submissions s
         ON s.id = o.form_submission_id
-    WHERE o.id = :outbox_id and o.processed_at IS NULL
+    WHERE o.id = :outbox_id
     ORDER BY o.created_at ASC    
     FOR UPDATE SKIP LOCKED;
 """)
@@ -130,7 +130,7 @@ def process_one(engine: Engine, outbox_id: int = None) -> bool:
             logging.info("Processing submission %s", {row['form_submission_id']})
             slack.post_application(
                 cfg=config.load_config(),
-                applicantion_data=row["data"],
+                application_data=row["data"],
             )
             
             mark_outbox_success(conn=conn, outbox_id=row["outbox_id"])
@@ -141,3 +141,24 @@ def process_one(engine: Engine, outbox_id: int = None) -> bool:
             raise
 
     return True
+
+def archive_slack_message(item: dict):
+    """
+    Archive a slack message to the database.
+    item contains: engine, channel, user, text, ts, thread_ts
+    """
+    engine = item["engine"]
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                INSERT INTO slack_messages (channel, user, text, ts, thread_ts)
+                VALUES (:channel, :user, :text, :ts, :thread_ts)
+            """),
+            {
+                "channel": item["channel"],
+                "user": item["user"],
+                "text": item["text"],
+                "ts": item["ts"],
+                "thread_ts": item["thread_ts"],
+            },
+        )

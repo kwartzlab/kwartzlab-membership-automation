@@ -21,6 +21,7 @@ class Config:
 
     # Slack
     slack_bot_token: str
+    slack_app_token: str
     slack_channel_id: str
 
     # Worker behavior
@@ -41,6 +42,7 @@ def load_config() -> Config:
         # Slack
         slack_bot_token=getenv("SLACK_BOT_TOKEN", required=True),
         slack_channel_id=getenv("SLACK_CHANNEL_ID", required=True),
+        slack_app_token=getenv("SLACK_APP_TOKEN", required=True),
 
         poll_interval_seconds=int(getenv("POLL_INTERVAL_SECONDS", "30")),
         batch_size=int(getenv("BATCH_SIZE", "1")),

@@ -3,12 +3,12 @@ from pathlib import Path
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-import email_templates
-
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+
+from templates import email_templates
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 

@@ -12,10 +12,11 @@ from routes.email import router as email_router
 
 from slack_app import build_slack_runtime
 from worker import poller_loop
+from services import Services
 
 logger = logging.getLogger(__name__)
 
-def make_app(cfg: Config, engine: db.Engine, gmail_service, slack_engine: db.Engine):
+def make_app(services: Services):
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -23,11 +24,11 @@ def make_app(cfg: Config, engine: db.Engine, gmail_service, slack_engine: db.Eng
 
         tasks: list[asyncio.Task] = []
         
-        await asyncio.to_thread(db.create_slack_tables, slack_engine)
+        await asyncio.to_thread(db.create_slack_tables, services.slack_db_engine)
         
-        tasks.append(asyncio.create_task(poller_loop(cfg=cfg, engine=engine, slack_engine=slack_engine)))
+        tasks.append(asyncio.create_task(poller_loop(cfg=services.config, engine=services.kos_db_engine, slack_engine=services.slack_db_engine)))
 
-        slack_runtime = build_slack_runtime(cfg=cfg, engine=engine, slack_engine=slack_engine)
+        slack_runtime = build_slack_runtime(cfg=services.config, engine=services.kos_db_engine, slack_db_engine=services.slack_db_engine)
         tasks.extend(slack_runtime.start_tasks())
 
         try:
@@ -41,17 +42,14 @@ def make_app(cfg: Config, engine: db.Engine, gmail_service, slack_engine: db.Eng
                 with suppress(asyncio.CancelledError):
                     await t
 
-            await asyncio.to_thread(engine.dispose)
-            await asyncio.to_thread(slack_engine.dispose)
+            await asyncio.to_thread(services.kos_db_engine.dispose)
+            await asyncio.to_thread(services.slack_db_engine.dispose)
 
             logger.info("Lifespan stopped.")
 
     app = FastAPI(lifespan=lifespan)
 
-    app.state.engine = engine
-    app.state.cfg = cfg
-    app.state.gmail_service = gmail_service
-    app.state.slack_engine = slack_engine
+    app.state.services = services
     
 
     app.include_router(health_router)

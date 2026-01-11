@@ -1,20 +1,24 @@
 import logging
 import json
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 
 import db
 import slack_web
+from services import Services
 
 logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
 
+def get_services(request: Request) -> Services:
+    return request.app.state.services
+
 @router.post("/process-form-outbox/{outbox_id}")
-def process_outbox(outbox_id: int, request: Request):
-    engine = request.app.state.engine
-    cfg = request.app.state.cfg
-    slack_engine = request.app.state.slack_engine
+def process_outbox(outbox_id: int, request: Request, services: Services = Depends(get_services)):
+    engine = services.kos_db_engine
+    cfg = services.config
+    slack_engine = services.slack_db_engine
     
     with engine.begin() as conn:
         application = db.get_application_from_outbox(conn=conn, outbox_id=outbox_id)

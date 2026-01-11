@@ -60,7 +60,7 @@ def get_thread_ts(engine: Engine, ts: str) -> str:
         result = conn.execute(text("SELECT thread_ts FROM slack_thread_events WHERE timestamp = :ts LIMIT 1"), {"ts": ts}).fetchone()
         return result[0] if result else None
 
-def get_applicant_user_id(engine: Engine, thread_ts: str) -> str:
+def get_applicant_user_id_by_thread_ts(engine: Engine, thread_ts: str) -> str:
     with engine.begin() as conn:
         result = conn.execute(text("SELECT applicant_user_id FROM slack_thread_events WHERE thread_ts = :thread_ts AND event = 'post' LIMIT 1"), {"thread_ts": thread_ts}).fetchone()
         return result[0] if result else None
@@ -72,7 +72,7 @@ def insert_slack_event(engine: Engine, event_data: dict):
     
     # Set applicant_user_id if not set and thread_ts exists
     if event_data.get('applicant_user_id') is None and event_data.get('thread_ts'):
-        event_data['applicant_user_id'] = get_applicant_user_id(engine, event_data['thread_ts'])
+        event_data['applicant_user_id'] = get_applicant_user_id_by_thread_ts(engine, event_data['thread_ts'])
     
     with engine.begin() as conn:
         conn.execute(INSERT_SLACK_EVENT_SQL, event_data)
@@ -97,6 +97,16 @@ def update_slack_user_names(engine: Engine):
                 )
             except SlackApiError as e:
                 logger.error(f"Failed to fetch user info for {user_id}: {e.response['error']}")
+
+
+def get_slack_event_by_message_ts(engine: Engine, message_ts: str) -> dict:
+    with engine.begin() as conn:
+        result = conn.execute(
+            text("SELECT * FROM slack_thread_events WHERE timestamp = :message_ts LIMIT 1"),
+            {"message_ts": message_ts}
+        ).mappings().first()
+        return result
+
 
 FETCH_USER_BY_ID_SQL = text("""
     SELECT 
@@ -210,7 +220,6 @@ def archive_slack_message(item: dict):
     #         },
     #     )
 
-# 1767942075.607059
 
 def process_one(engine: Engine, slack_engine: Engine, cfg):
     with engine.begin() as conn:

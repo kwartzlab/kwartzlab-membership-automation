@@ -129,6 +129,18 @@ def build_return_visit_email(user):
             signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
         )
 
+def build_rejection_email(user):
+    return build_email_with_template(
+            to=user["email"],
+            from_name=MEMBERSHIP_GROUP_FROM_NAME,
+            from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
+            email_template=email_templates.REJECTION_EMAIL,
+            template_vars={
+                "name": user["first_preferred"]
+            },
+            signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
+        )
+
 # Main only to test. This should not be run.
 if __name__ == "__main__":
     

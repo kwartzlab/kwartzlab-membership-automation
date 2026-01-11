@@ -1,14 +1,18 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 
 import db
 import mailer
+from services import Services
 
 router = APIRouter()
 
+def get_services(request: Request) -> Services:
+    return request.app.state.services
+
 @router.post("/email/{user_id}/return_visit")
-def send_return_visit_email(user_id: int, request: Request):
-    engine = request.app.state.engine
-    gmail_service = request.app.state.gmail_service
+def send_return_visit_email(user_id: int, request: Request, services: Services = Depends(get_services)):
+    engine = services.kos_db_engine
+    gmail_service = services.gmail_service
     
     with engine.begin() as conn:
         user = db.get_user_by_id(conn=conn, user_id=user_id)
@@ -25,9 +29,9 @@ def send_return_visit_email(user_id: int, request: Request):
     return user
 
 @router.post("/email/{user_id}/acceptance/", status_code=204)
-def send_acceptance_email(user_id: int, request: Request):
-    engine = request.app.state.engine
-    gmail_service = request.app.state.gmail_service
+def send_acceptance_email(user_id: int, request: Request, services: Services = Depends(get_services)):
+    engine = services.kos_db_engine
+    gmail_service = services.gmail_service
 
     with engine.begin() as conn:
         user = db.get_user_by_id(conn=conn, user_id=user_id)

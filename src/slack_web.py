@@ -146,7 +146,7 @@ def get_users(cfg: config.Config):
     return users_info
 
 
-def post_message_reply(cfg: config.Config, channel: str, thread_ts: str, message: str) -> None:
+def post_message_reply(cfg: config.Config, channel: str, thread_ts: str, message: str, reply_broadcast: bool = False) -> None:
     client = WebClient(
         token=cfg.slack_bot_token
     )
@@ -155,6 +155,7 @@ def post_message_reply(cfg: config.Config, channel: str, thread_ts: str, message
             channel=channel,
             text=message,
             thread_ts=thread_ts,
+            reply_broadcast=reply_broadcast,
         )
         logger.info("Reply posted: %s", response)
         return response
@@ -211,7 +212,7 @@ def get_user_group(cfg: config.Config, usergroup_id: str):
         raise e
 
 
-def send_ephemeral_message(cfg: config.Config, channel: str, user: str, message: str, thread_ts: str = None) -> None:
+def send_ephemeral_message(cfg: config.Config, channel: str, user: str, text: str = "", blocks: list = None, thread_ts: str = None) -> None:
     client = WebClient(
         token=cfg.slack_bot_token
     )
@@ -219,8 +220,9 @@ def send_ephemeral_message(cfg: config.Config, channel: str, user: str, message:
         response = client.chat_postEphemeral(
             channel=channel,
             user=user,
-            text=message,
+            text=text,
             thread_ts=thread_ts,
+            blocks=blocks
         )
         logger.info("Ephemeral message sent: %s", response)
         return response

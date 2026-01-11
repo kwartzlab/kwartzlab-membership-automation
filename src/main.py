@@ -7,6 +7,7 @@ import config
 import db
 from mailer import get_gmail_service
 from routes import make_app
+from services import Services
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,8 +31,16 @@ if __name__ == "__main__":
     gmail_service = get_gmail_service()
     logger.info("Gmail service created: %s", gmail_service)
 
+    logger.info("Creating services container...")
+    services = Services(
+        config=cfg,
+        kos_db_engine=engine,
+        slack_db_engine=slack_engine,
+        gmail_service=gmail_service
+    )
+
     logger.info("Creating FastAPI app...")
-    app = make_app(cfg, engine, gmail_service, slack_engine)
+    app = make_app(services)
     
     port = cfg.port
     

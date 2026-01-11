@@ -5,11 +5,11 @@ import db
 
 logger = logging.getLogger(__name__)
 
-async def poller_loop(cfg, engine):
+async def poller_loop(cfg, engine, slack_engine):
     while True:
         try:
             logger.info("Checking for missed messages...")
-            await asyncio.to_thread(db.process_one, engine) 
+            await asyncio.to_thread(db.process_one, engine, slack_engine, cfg) 
         except asyncio.CancelledError:
             logger.info("Poller cancelled.")
             break

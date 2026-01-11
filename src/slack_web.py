@@ -45,7 +45,8 @@ def construct_application_blocks(
     if photo_id:
         blocks.append({
             "type": "image",
-            "image_url": f"{photo_base_url}{photo_id}{photo_ext}",
+            "image_url": f"https://i.imgur.com/733Q0Rq.jpeg",
+            # "image_url": f"{photo_base_url}{photo_id}{photo_ext}",
             "alt_text": "Applicant photo",
         })
 
@@ -54,7 +55,7 @@ def construct_application_blocks(
         "type": "header",
         "text": {
             "type": "plain_text",
-            "text": "Kwartzlab Membership Interview",
+            "text": f"{label_values.get('First Name', 'Unknown')} {label_values.get('Last Name', 'Unknown')} - Kwartzlab Membership Interview",
             "emoji": True,
         },
     })
@@ -132,6 +133,97 @@ def post_application(cfg: config.Config, application_data) -> None:
             blocks=blocks["blocks"],
         )
         logger.info("Response received: %s", response)
+        return response
+    except SlackApiError as e:
+        logger.error(e.response["error"])
+        raise e
+    
+def get_users(cfg: config.Config):
+    client = WebClient(
+        token=cfg.slack_bot_token
+    )
+    users_info = client.users_list()
+    return users_info
+
+
+def post_message_reply(cfg: config.Config, channel: str, thread_ts: str, message: str) -> None:
+    client = WebClient(
+        token=cfg.slack_bot_token
+    )
+    try:
+        response = client.chat_postMessage(
+            channel=channel,
+            text=message,
+            thread_ts=thread_ts,
+        )
+        logger.info("Reply posted: %s", response)
+        return response
+    except SlackApiError as e:
+        logger.error(e.response["error"])
+        raise e
+    
+    
+def add_reaction(cfg: config.Config, channel: str, timestamp: str, reaction: str) -> None:
+    client = WebClient(
+        token=cfg.slack_bot_token
+    )
+    try:
+        response = client.reactions_add(
+            channel=channel,
+            timestamp=timestamp,
+            name=reaction,
+        )
+        logger.info("Reaction added: %s", response)
+        return response
+    except SlackApiError as e:
+        logger.error(e.response["error"])
+        raise e
+    
+    
+def remove_reaction(cfg: config.Config, channel: str, timestamp: str, reaction: str) -> None:
+    client = WebClient(
+        token=cfg.slack_bot_token
+    )
+    try:
+        response = client.reactions_remove(
+            channel=channel,
+            timestamp=timestamp,
+            name=reaction,
+        )
+        logger.info("Reaction removed: %s", response)
+        return response
+    except SlackApiError as e:
+        logger.error(e.response["error"])
+        raise e
+
+def get_user_group(cfg: config.Config, usergroup_id: str):
+    client = WebClient(
+        token=cfg.slack_bot_token
+    )
+    try:
+        response = client.usergroups_users_list(
+            usergroup=usergroup_id
+        )
+        logger.info("User group members fetched: %s", response)
+        return response
+    except SlackApiError as e:
+        logger.error(e.response["error"])
+        raise e
+
+
+def send_ephemeral_message(cfg: config.Config, channel: str, user: str, message: str, thread_ts: str = None) -> None:
+    client = WebClient(
+        token=cfg.slack_bot_token
+    )
+    try:
+        response = client.chat_postEphemeral(
+            channel=channel,
+            user=user,
+            text=message,
+            thread_ts=thread_ts,
+        )
+        logger.info("Ephemeral message sent: %s", response)
+        return response
     except SlackApiError as e:
         logger.error(e.response["error"])
         raise e

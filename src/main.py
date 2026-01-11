@@ -22,12 +22,16 @@ if __name__ == "__main__":
     engine = db.create_db_engine(cfg)
     logger.info("Database engine created successfully: %s", engine)
 
+    logger.info("Creating slack database engine...")
+    slack_engine = db.create_slack_db_engine()
+    logger.info("Slack database engine created successfully: %s", slack_engine)
+
     logger.info("Creating gmail service...")
     gmail_service = get_gmail_service()
     logger.info("Gmail service created: %s", gmail_service)
 
     logger.info("Creating FastAPI app...")
-    app = make_app(cfg, engine, gmail_service)
+    app = make_app(cfg, engine, gmail_service, slack_engine)
     
     port = cfg.port
     

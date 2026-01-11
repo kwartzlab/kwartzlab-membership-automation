@@ -15,7 +15,7 @@ from worker import poller_loop
 
 logger = logging.getLogger(__name__)
 
-def make_app(cfg: Config, engine: db.Engine, gmail_service):
+def make_app(cfg: Config, engine: db.Engine, gmail_service, slack_engine: db.Engine):
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -23,9 +23,11 @@ def make_app(cfg: Config, engine: db.Engine, gmail_service):
 
         tasks: list[asyncio.Task] = []
         
-        tasks.append(asyncio.create_task(poller_loop(cfg=cfg, engine=engine)))
+        await asyncio.to_thread(db.create_slack_tables, slack_engine)
+        
+        tasks.append(asyncio.create_task(poller_loop(cfg=cfg, engine=engine, slack_engine=slack_engine)))
 
-        slack_runtime = build_slack_runtime(cfg=cfg, engine=engine)
+        slack_runtime = build_slack_runtime(cfg=cfg, engine=engine, slack_engine=slack_engine)
         tasks.extend(slack_runtime.start_tasks())
 
         try:
@@ -40,6 +42,7 @@ def make_app(cfg: Config, engine: db.Engine, gmail_service):
                     await t
 
             await asyncio.to_thread(engine.dispose)
+            await asyncio.to_thread(slack_engine.dispose)
 
             logger.info("Lifespan stopped.")
 
@@ -48,6 +51,7 @@ def make_app(cfg: Config, engine: db.Engine, gmail_service):
     app.state.engine = engine
     app.state.cfg = cfg
     app.state.gmail_service = gmail_service
+    app.state.slack_engine = slack_engine
     
 
     app.include_router(health_router)

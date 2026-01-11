@@ -24,6 +24,8 @@ class Config:
     slack_app_token: str
     slack_channel_id: str
 
+    authorized_usergroups: list
+
     # Worker behavior
     poll_interval_seconds: int
     batch_size: int
@@ -43,6 +45,9 @@ def load_config() -> Config:
         slack_bot_token=getenv("SLACK_BOT_TOKEN", required=True),
         slack_channel_id=getenv("SLACK_CHANNEL_ID", required=True),
         slack_app_token=getenv("SLACK_APP_TOKEN", required=True),
+
+        #Default to BoD slack usergroup
+        authorized_usergroups=getenv("AUTHORIZED_USERGROUPS", "SDFB4PKGE").split(" "), 
 
         poll_interval_seconds=int(getenv("POLL_INTERVAL_SECONDS", "30")),
         batch_size=int(getenv("BATCH_SIZE", "1")),

@@ -144,11 +144,11 @@ def register_email_shortcut_handler(app, cfg, runtime):
             cfg=cfg,
             channel=channel,
             user=user,
-            text="Please choose the type of email to send and provide signature details:",
+            text=f"Please choose the type of email to send and provide signature details:",
             blocks=[
                 {
                     "type": "section",
-                    "text": { "type": "mrkdwn", "text": "*Choose an option and enter signature details:*" }
+                    "text": { "type": "mrkdwn", "text": f"*<@{user}> Choose an option and enter signature details:*" }
                 },
                 {
                     "type": "input",
@@ -222,15 +222,15 @@ def register_email_actions(app, cfg, runtime):
             choice = body["state"]["values"]["choice_block"]["choice_select"]["selected_option"]["value"]
             sig_name = body["state"]["values"]["sig_name_block"]["sig_name"]["value"]
             sig_role = body["state"]["values"]["sig_role_block"].get("sig_role", {}).get("value", "")
-            
-            applicant_user_id = db.get_applicant_user_id_by_thread_ts(runtime.slack_db_engine, body["container"]["thread_ts"])
+            with runtime.slack_db_engine.connect() as conn:
+                applicant_user_id = db.get_applicant_user_id_by_thread_ts(conn, body["container"]["thread_ts"])
             if not applicant_user_id:
                 raise ValueError("No applicant user ID found for this message.")
 
             with runtime.kos_db_engine.begin() as conn:
                 user = db.get_user_by_id(conn, int(applicant_user_id))                    
                 if not user:
-                            raise ValueError("No application found for applicant user ID.")
+                    raise ValueError("No application found for applicant user ID.")
                         
             gmail_service = runtime.mailer
             
@@ -297,3 +297,58 @@ def register_email_actions(app, cfg, runtime):
             text="Cancelled.",
             blocks=[]
         )
+        
+def register_modal_handler(app, cfg, runtime):
+    @app.action("view_application_questions")
+    async def handle_view_questions(ack, body, client, logger):
+        await ack()
+
+        try:
+            thread_ts = body.get("message", {}).get("thread_ts") or body.get("message", {}).get("ts")
+            if not thread_ts:
+                # Fallback: try container message
+                thread_ts = body.get("container", {}).get("message_ts")
+
+            if not thread_ts:
+                logger.warning("No thread_ts/ts found in action body.")
+                return
+
+            with runtime.slack_db_engine.connect() as conn:
+                modal = db.get_modal_blocks_payload_by_thread_ts(conn, thread_ts)
+
+            if not modal:
+                await client.views_open(
+                    trigger_id=body["trigger_id"],
+                    view={
+                        "type": "modal",
+                        "title": {"type": "plain_text", "text": "Application"},
+                        "close": {"type": "plain_text", "text": "Close"},
+                        "blocks": [
+                            {
+                                "type": "section",
+                                "text": {"type": "mrkdwn", "text": "Couldn’t find application data for this thread."},
+                            }
+                        ],
+                    },
+                )
+                return
+
+            await client.views_open(trigger_id=body["trigger_id"], view=modal)
+
+        except Exception as e:
+            logger.exception("Failed to open questions modal: %s", e)
+            # Avoid leaking details to users; just log server-side.
+            try:
+                await client.views_open(
+                    trigger_id=body["trigger_id"],
+                    view={
+                        "type": "modal",
+                        "title": {"type": "plain_text", "text": "Error"},
+                        "close": {"type": "plain_text", "text": "Close"},
+                        "blocks": [
+                            {"type": "section", "text": {"type": "mrkdwn", "text": "Something went wrong opening the modal."}}
+                        ],
+                    },
+                )
+            except Exception:
+                pass

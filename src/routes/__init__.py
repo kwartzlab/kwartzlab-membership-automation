@@ -3,7 +3,6 @@ import logging
 import db
 
 from fastapi import FastAPI
-from config import Config
 from contextlib import asynccontextmanager, suppress
 
 from routes.health import router as health_router
@@ -23,8 +22,8 @@ def make_app(services: Services):
         logger.info("Starting application lifespan...")
 
         tasks: list[asyncio.Task] = []
-        
-        await asyncio.to_thread(db.create_slack_tables, services.slack_db_engine)
+        with services.slack_db_engine.begin() as conn:
+            await asyncio.to_thread(db.create_slack_tables, conn)
         
         tasks.append(asyncio.create_task(poller_loop(cfg=services.config, engine=services.kos_db_engine, slack_engine=services.slack_db_engine)))
 

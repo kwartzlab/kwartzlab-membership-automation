@@ -87,5 +87,5 @@ def build_slack_runtime(cfg, engine, slack_db_engine) -> SlackRuntime:
     slack_handlers.register_message_handler(slack_app, cfg, runtime, q)
     slack_handlers.register_email_shortcut_handler(slack_app, cfg, runtime)
     slack_handlers.register_email_actions(slack_app, cfg, runtime)
-
+    slack_handlers.register_modal_handler(slack_app, cfg, runtime)
     return runtime

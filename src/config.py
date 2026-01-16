@@ -12,12 +12,15 @@ def getenv(name: str, default: Optional[str] = None, *, required: bool = False) 
 
 @dataclass(frozen=True)
 class Config:
-    # Database
+    # kOS Database
     db_user: str
     db_pass: str
     db_host: str
     db_port: int
     db_name: str
+
+    #SQLite db
+    sqlite_db_path: str
 
     # Slack
     slack_bot_token: str
@@ -25,6 +28,10 @@ class Config:
     slack_channel_id: str
 
     authorized_usergroups: list
+
+    # Email
+    credentials_file: str
+    token_file: str
 
     # Worker behavior
     poll_interval_seconds: int
@@ -58,6 +65,12 @@ def load_config() -> Config:
         db_host=getenv("DB_HOST", required=True),
         db_port=getenv("DB_PORT", required=True),
         db_name=getenv("DB_DATABASE", required=True),
+
+        sqlite_db_path=getenv("SQLITE_DB_PATH", "slack_threads.db"),
+
+        # Email
+        credentials_file=getenv("CREDENTIALS_FILE", "credentials.json"),
+        token_file=getenv("TOKEN_FILE", "token.json"),
 
         #API Service
         port=int(getenv("PORT", 8080)),

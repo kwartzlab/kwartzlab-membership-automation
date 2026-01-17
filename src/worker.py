@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 async def poller_loop(cfg, kos_api_client, slack_engine):
     while True:
         try:
-            logger.info("Checking for missed messages...")
+            logger.debug("Checking for missed messages.")
             with slack_engine.begin() as slack_conn:
                 await asyncio.to_thread(interviews.process_one, kos_api_client, slack_conn, cfg)
         except asyncio.CancelledError:

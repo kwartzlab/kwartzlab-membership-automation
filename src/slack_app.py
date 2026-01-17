@@ -30,7 +30,7 @@ class UserCacheManager:
     async def update_users_info(self):
         while True:
             try:
-                logger.info("Updating slack user info...")
+                logger.debug("Updating slack user info.")
                 users = await asyncio.to_thread(get_users, self.config)
                 
                 for user in users["members"]:
@@ -44,7 +44,7 @@ class UserCacheManager:
                     for user_id in authorized_users.get("users", []):
                         self.authorized_users.add(user_id)
                 
-                logger.info("Slack user info updated.")
+                logger.debug("Slack user info updated.")
             except asyncio.CancelledError:
                 logger.info("User info updater cancelled.")
                 break

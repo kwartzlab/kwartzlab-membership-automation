@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional
 
@@ -41,9 +42,19 @@ class Config:
     
     port: int
 
+    # Paths
+    project_root: str
+
 
 def load_config() -> Config:
     env = getenv("ENVIRONMENT", "development")
+    project_root = Path(
+        getenv("PROJECT_ROOT", str(Path(__file__).resolve().parent.parent))
+    ).resolve()
+
+    def resolve_path(value: str) -> str:
+        path = Path(value)
+        return str(path if path.is_absolute() else project_root / path)
 
     return Config(
         # Slack
@@ -62,16 +73,19 @@ def load_config() -> Config:
         kos_api_token=getenv("KOS_API_TOKEN", required=True),
         kos_api_timeout_seconds=int(getenv("KOS_API_TIMEOUT_SECONDS", "10")),
 
-        sqlite_db_path=getenv("SQLITE_DB_PATH", "slack_threads.db"),
+        sqlite_db_path=resolve_path(getenv("SQLITE_DB_PATH", "slack_threads.db")),
 
         # Email
-        credentials_file=getenv("CREDENTIALS_FILE", "credentials.json"),
-        token_file=getenv("TOKEN_FILE", "token.json"),
+        credentials_file=resolve_path(getenv("CREDENTIALS_FILE", "credentials.json")),
+        token_file=resolve_path(getenv("TOKEN_FILE", "token.json")),
 
         #API Service
         port=int(getenv("PORT", 8080)),
 
         # Meta
         environment=env,
-        debug=getenv("DEBUG", "false").lower() == "true"
+        debug=getenv("DEBUG", "false").lower() == "true",
+
+        # Paths
+        project_root=str(project_root),
     )

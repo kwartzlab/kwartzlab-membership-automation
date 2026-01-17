@@ -19,7 +19,12 @@ class KosApiClient:
         return self._get_json(f"/api/users/{user_id}")
 
     def get_next_outbox(self) -> Optional[dict]:
-        return self._get_json("/api/form_submissions/outbox/next")
+        response = self._request("get", "/api/form_submissions/outbox/next", allow_statuses={404})
+        if response.status_code in (204, 404):
+            if response.status_code == 404:
+                logger.debug("No outbox items available (kOS returned 404).")
+            return None
+        return response.json()
 
     def get_outbox(self, outbox_id: int) -> Optional[dict]:
         try:
@@ -60,9 +65,12 @@ class KosApiClient:
         response = self._request(method, path, **kwargs)
         return response.json()
 
-    def _request(self, method: str, path: str, **kwargs) -> requests.Response:
+    def _request(self, method: str, path: str, *, allow_statuses: Optional[set[int]] = None, **kwargs) -> requests.Response:
         url = f"{self.base_url}{path}"
         response = self.session.request(method, url, timeout=self.timeout_seconds, **kwargs)
+
+        if allow_statuses and response.status_code in allow_statuses:
+            return response
 
         try:
             response.raise_for_status()

@@ -28,10 +28,10 @@ def post_message_reply(cfg: config.Config, channel: str, thread_ts: str = None, 
             thread_ts=thread_ts,
             reply_broadcast=reply_broadcast,
         )
-        logger.info("Reply posted: %s", response)
+        logger.debug("Reply posted to channel %s thread %s.", channel, thread_ts)
         return response
     except SlackApiError as e:
-        logger.error(e.response["error"])
+        logger.error("Slack API error on chat_postMessage: %s", e.response["error"])
         raise e
     
     
@@ -45,10 +45,10 @@ def add_reaction(cfg: config.Config, channel: str, timestamp: str, reaction: str
             timestamp=timestamp,
             name=reaction,
         )
-        logger.info("Reaction added: %s", response)
+        logger.debug("Reaction %s added to channel %s at %s.", reaction, channel, timestamp)
         return response
     except SlackApiError as e:
-        logger.error(e.response["error"])
+        logger.error("Slack API error on reactions_add: %s", e.response["error"])
         raise e
     
     
@@ -62,10 +62,10 @@ def remove_reaction(cfg: config.Config, channel: str, timestamp: str, reaction: 
             timestamp=timestamp,
             name=reaction,
         )
-        logger.info("Reaction removed: %s", response)
+        logger.debug("Reaction %s removed from channel %s at %s.", reaction, channel, timestamp)
         return response
     except SlackApiError as e:
-        logger.error(e.response["error"])
+        logger.error("Slack API error on reactions_remove: %s", e.response["error"])
         raise e
 
 def get_user_group(cfg: config.Config, usergroup_id: str):
@@ -76,10 +76,10 @@ def get_user_group(cfg: config.Config, usergroup_id: str):
         response = client.usergroups_users_list(
             usergroup=usergroup_id
         )
-        logger.info("User group members fetched: %s", response)
+        logger.debug("User group %s members fetched.", usergroup_id)
         return response
     except SlackApiError as e:
-        logger.error(e.response["error"])
+        logger.error("Slack API error on usergroups_users_list: %s", e.response["error"])
         raise e
 
 
@@ -95,8 +95,8 @@ def send_ephemeral_message(cfg: config.Config, channel: str, user: str, text: st
             thread_ts=thread_ts,
             blocks=blocks
         )
-        logger.info("Ephemeral message sent: %s", response)
+        logger.debug("Ephemeral message sent to user %s in channel %s.", user, channel)
         return response
     except SlackApiError as e:
-        logger.error(e.response["error"])
+        logger.error("Slack API error on chat_postEphemeral: %s", e.response["error"])
         raise e

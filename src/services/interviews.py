@@ -15,7 +15,11 @@ def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Co
         return {"No outbox item to process"}
     outbox_id = application["outbox_id"]
     try:
-        logging.info("Processing submission %s", {application['form_submission_id']})
+        logger.info(
+            "Processing submission %s (outbox_id=%s).",
+            application["form_submission_id"],
+            outbox_id,
+        )
         response = post_application(
                 cfg=cfg,
                 application_data=application["data"],
@@ -38,7 +42,11 @@ def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Co
         add_default_message(cfg, channel=response['channel'], timestamp=ts)
         
         modal = build_questions_modal_view(application_data=application["data"])
-        logger.info("Saving slack modal response for user %s", application["user_id"])
+        logger.debug(
+            "Saving slack modal response for user %s (outbox_id=%s).",
+            application["user_id"],
+            outbox_id,
+        )
         
         save_slack_modal_response(
             conn=slack_conn,
@@ -50,17 +58,17 @@ def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Co
         return response
 
     except Exception as exc:
-        logging.info("Failed to process outbox_id: %s", outbox_id)
+        logger.exception("Failed to process outbox_id %s.", outbox_id)
         kos_api_client.mark_outbox(outbox_id, last_error=str(exc)[:1000])
         return {f"Submission Failed {exc}"}
 
     
 def get_application_from_outbox(kos_api_client: kos_api.KosApiClient, outbox_id: int = None):
     if outbox_id is None:
-        logger.info("Fetching next outbox item")
+        logger.debug("Fetching next outbox item.")
         row = kos_api_client.get_next_outbox()
     else: 
-        logger.info("Fetching outbox by id %s", outbox_id)
+        logger.debug("Fetching outbox by id %s.", outbox_id)
         row = kos_api_client.get_outbox(outbox_id)
 
     return row

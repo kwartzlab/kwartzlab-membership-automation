@@ -244,7 +244,7 @@ def applicant_data_to_dict(data: dict) -> dict:
 
 def post_application(cfg: config.Config, application_data) -> None:    
     blocks = construct_application_blocks(applicant_data_to_dict(application_data))
-    logger.info("Sending blocks to slack %s", blocks["blocks"])
+    logger.debug("Sending application blocks to slack channel %s.", cfg.slack_channel_id)
 
     response = post_message_reply(
         cfg=cfg,
@@ -263,7 +263,7 @@ def add_default_reacts(cfg: config.Config, channel: str, timestamp: str) -> None
         try:
             add_reaction(cfg, channel, timestamp, reaction)
         except Exception as e:
-            logger.error("Failed to add reaction %s: %s", reaction, e)
+            logger.error("Failed to add reaction %s in channel %s at %s: %s", reaction, channel, timestamp, e)
             
 def add_default_message(cfg: config.Config, channel: str, timestamp: str) -> None:
     from slack_web import post_message_reply
@@ -283,4 +283,4 @@ def add_default_message(cfg: config.Config, channel: str, timestamp: str) -> Non
             text=default_message,
         )
     except Exception as e:
-        logger.error("Failed to post default message: %s", e)
+        logger.error("Failed to post default message in channel %s at %s: %s", channel, timestamp, e)

@@ -17,7 +17,7 @@ def register_app_mention_handler(app, cfg, runtime):
         user_id = event.get("user") 
 
         if user_id not in runtime.cache_manager.authorized_users:
-            logger.info("Unauthorized user %s tried to use bot.", user_id)
+            logger.warning("Unauthorized user %s tried to use bot.", user_id)
             send_ephemeral_message(
                 cfg,
                 channel=event.get("channel"),
@@ -26,7 +26,7 @@ def register_app_mention_handler(app, cfg, runtime):
                 thread_ts=event.get("thread_ts"),
             )
             return
-        logger.info("Authorized user %s used bot.", user_id)
+        logger.debug("Authorized user %s used bot.", user_id)
         send_ephemeral_message(
             cfg,
             channel=event.get("channel"),
@@ -211,14 +211,18 @@ def register_email_shortcut_handler(app, cfg, runtime):
             thread_ts=thread_ts,
         )
         
-        logger.info("Shortcut response: %s", resp)
+        logger.debug("Shortcut response sent for user %s: %s", user, resp)
 
 def register_email_actions(app, cfg, runtime):
     
     @app.action("confirm_submit")
     async def handle_send_email(ack, body, logger, respond):
         await ack()
-        logger.info(body)
+        logger.debug(
+            "Email action received (user=%s, action=%s).",
+            body.get("user", {}).get("id"),
+            body.get("actions", [{}])[0].get("action_id"),
+        )
         try:
             choice = body["state"]["values"]["choice_block"]["choice_select"]["selected_option"]["value"]
             sig_name = body["state"]["values"]["sig_name_block"]["sig_name"]["value"]
@@ -253,10 +257,10 @@ def register_email_actions(app, cfg, runtime):
                     message=message
                 )
             except Exception as e:
-                logger.error("Failed to send email via Gmail API: %s", e)
+                logger.exception("Failed to send email via Gmail API to %s.", user.get("email"))
             
         except Exception as e:
-            logger.error("Failed to send email: %s", e)
+            logger.exception("Failed to send email.")
             raise e
         
         # post_message_reply(
@@ -281,7 +285,10 @@ def register_email_actions(app, cfg, runtime):
     @app.action("choice_select")
     async def handle_some_action(ack, body, logger):
         await ack()
-        logger.info(body)
+        logger.debug(
+            "Choice select action received (user=%s).",
+            body.get("user", {}).get("id"),
+        )
 
     @app.action("email_cancel")
     async def cancel(ack, respond):

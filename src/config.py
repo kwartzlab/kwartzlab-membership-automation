@@ -12,12 +12,10 @@ def getenv(name: str, default: Optional[str] = None, *, required: bool = False) 
 
 @dataclass(frozen=True)
 class Config:
-    # kOS Database
-    db_user: str
-    db_pass: str
-    db_host: str
-    db_port: int
-    db_name: str
+    # kOS API
+    kos_api_base_url: str
+    kos_api_token: str
+    kos_api_timeout_seconds: int
 
     #SQLite db
     sqlite_db_path: str
@@ -59,12 +57,10 @@ def load_config() -> Config:
         poll_interval_seconds=int(getenv("POLL_INTERVAL_SECONDS", "30")),
         batch_size=int(getenv("BATCH_SIZE", "1")),
         
-        # db
-        db_user=getenv("DB_USERNAME", required=True),
-        db_pass=getenv("DB_PASSWORD", required=True),
-        db_host=getenv("DB_HOST", required=True),
-        db_port=getenv("DB_PORT", required=True),
-        db_name=getenv("DB_DATABASE", required=True),
+        # kOS API
+        kos_api_base_url=getenv("KOS_API_BASE_URL", required=True),
+        kos_api_token=getenv("KOS_API_TOKEN", required=True),
+        kos_api_timeout_seconds=int(getenv("KOS_API_TIMEOUT_SECONDS", "10")),
 
         sqlite_db_path=getenv("SQLITE_DB_PATH", "slack_threads.db"),
 

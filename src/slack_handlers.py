@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import mailer
@@ -227,10 +228,9 @@ def register_email_actions(app, cfg, runtime):
             if not applicant_user_id:
                 raise ValueError("No applicant user ID found for this message.")
 
-            with runtime.kos_db_engine.begin() as conn:
-                user = db.get_user_by_id(conn, int(applicant_user_id))                    
-                if not user:
-                    raise ValueError("No application found for applicant user ID.")
+            user = await asyncio.to_thread(runtime.kos_api_client.get_user, int(applicant_user_id))
+            if not user:
+                raise ValueError("No application found for applicant user ID.")
                         
             gmail_service = runtime.mailer
             

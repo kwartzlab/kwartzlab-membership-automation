@@ -212,11 +212,10 @@ def build_questions_modal_view(
     }
 
 
-def applicant_data_to_dict(data: str) -> dict:
-    data_json = json.loads(data)
+def applicant_data_to_dict(data: dict) -> dict:
     return_dict = {}
-    
-    for field in data_json.values():
+
+    for field in data.values():
         label = field["label"]
         value = field["value"]
 

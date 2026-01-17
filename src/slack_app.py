@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import json
 from dataclasses import dataclass
 
 from slack_bolt.async_app import AsyncApp
@@ -8,10 +7,11 @@ from slack_bolt.adapter.socket_mode.aiohttp import AsyncSocketModeHandler
 from slack_web import get_users, get_user_group
 from config import Config
 
-import db
 import mailer
 import slack_handlers
 import slack_archiver
+import kos_api
+import db
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +59,10 @@ class SlackRuntime:
     socket_handler: AsyncSocketModeHandler
     queue: asyncio.Queue
     slack_db_engine: db.Engine
-    kos_db_engine: db.Engine
+    kos_api_client: kos_api.KosApiClient
     config: Config
     cache_manager: UserCacheManager = None
-    mailer = mailer.get_gmail_service()
+    mailer: any = None
     
     def __post_init__(self):
         if self.cache_manager is None:
@@ -75,12 +75,12 @@ class SlackRuntime:
             asyncio.create_task(self.cache_manager.update_users_info()),
         ]
 
-def build_slack_runtime(cfg, engine, slack_db_engine) -> SlackRuntime:
+def build_slack_runtime(cfg, kos_api_client, slack_db_engine, mailer) -> SlackRuntime:
     slack_app = AsyncApp(token=cfg.slack_bot_token)
     socket_handler = AsyncSocketModeHandler(slack_app, cfg.slack_app_token)
     q: asyncio.Queue[dict] = asyncio.Queue()
 
-    runtime = SlackRuntime(slack_app=slack_app, socket_handler=socket_handler, queue=q, slack_db_engine=slack_db_engine, config=cfg, kos_db_engine=engine)
+    runtime = SlackRuntime(slack_app=slack_app, socket_handler=socket_handler, queue=q, slack_db_engine=slack_db_engine, config=cfg, kos_api_client=kos_api_client, mailer=mailer)
 
     slack_handlers.register_app_mention_handler(slack_app, cfg, runtime)
     slack_handlers.register_reaction_handlers(slack_app, cfg, runtime, q)

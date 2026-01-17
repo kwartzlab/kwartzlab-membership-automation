@@ -25,9 +25,9 @@ def make_app(services: Services):
         with services.slack_db_engine.begin() as conn:
             await asyncio.to_thread(db.create_slack_tables, conn)
         
-        tasks.append(asyncio.create_task(poller_loop(cfg=services.config, engine=services.kos_db_engine, slack_engine=services.slack_db_engine)))
+        tasks.append(asyncio.create_task(poller_loop(cfg=services.config, kos_api_client=services.kos_api_client, slack_engine=services.slack_db_engine)))
 
-        slack_runtime = build_slack_runtime(cfg=services.config, engine=services.kos_db_engine, slack_db_engine=services.slack_db_engine)
+        slack_runtime = build_slack_runtime(cfg=services.config, kos_api_client=services.kos_api_client, slack_db_engine=services.slack_db_engine, mailer=services.gmail_service)
         tasks.extend(slack_runtime.start_tasks())
 
         try:
@@ -41,7 +41,6 @@ def make_app(services: Services):
                 with suppress(asyncio.CancelledError):
                     await t
 
-            await asyncio.to_thread(services.kos_db_engine.dispose)
             await asyncio.to_thread(services.slack_db_engine.dispose)
 
             logger.info("Lifespan stopped.")

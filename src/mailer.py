@@ -22,9 +22,13 @@ MEMBERSHIP_GROUP_FROM_NAME = "Membership Coordinator"
 MEMBERSHIP_GROUP_FROM_EMAIL = "membership@kwartzlab.ca"
 MEMBERSHIP_GROUP_REPLY_TO = "membership@kwartzlab.ca"
 
-def get_gmail_service(credentials_file: Path, token_file: Path) -> object:
+def get_gmail_service(credentials_file: str, token_file: str) -> object:
+    
     creds = None
-
+    base_path = Path(__file__).resolve().parents[1]
+    credentials_file = Path(base_path, credentials_file)
+    token_file = Path(base_path, token_file)
+    
     if token_file.exists():
         creds = Credentials.from_authorized_user_file(str(token_file), SCOPES)
 

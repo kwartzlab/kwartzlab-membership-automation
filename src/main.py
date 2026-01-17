@@ -1,41 +1,18 @@
 import logging
-import os
-import sys
-from logging.handlers import TimedRotatingFileHandler
 
 import uvicorn
 
 import config
 import db
 import kos_api
+from logging_setup import configure_logging
 from mailer import get_gmail_service
 from routes import make_app
 from services import Services
 
-log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-log_file = os.getenv("LOG_FILE")
-log_retention_days = int(os.getenv("LOG_RETENTION_DAYS", "7"))
-log_file_level = os.getenv("LOG_FILE_LEVEL", "DEBUG").upper()
-handlers = [logging.StreamHandler(sys.stdout)]
-if log_file:
-    file_handler = TimedRotatingFileHandler(
-        log_file,
-        when="midnight",
-        backupCount=log_retention_days,
-        utc=True,
-    )
-    file_handler.setLevel(getattr(logging, log_file_level, logging.DEBUG))
-    handlers.append(file_handler)
-
-logging.basicConfig(
-    level=getattr(logging, log_level, logging.INFO),
-    handlers=handlers,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
-logger = logging.getLogger(__name__)
-
-
 if __name__ == "__main__":
+    configure_logging()
+    logger = logging.getLogger(__name__)
     cfg = config.load_config()
     logger.info("Creating kOS API client...")
     kos_api_client = kos_api.KosApiClient(
@@ -63,8 +40,8 @@ if __name__ == "__main__":
 
     logger.info("Creating FastAPI app...")
     app = make_app(services)
-    
+
     port = cfg.port
-    
+
     logger.info("Starting Uvicorn on port %s", port)
     uvicorn.run(app, host="0.0.0.0", port=port)

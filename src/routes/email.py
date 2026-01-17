@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 import mailer
 from services import Services
@@ -12,12 +12,12 @@ def get_services(request: Request) -> Services:
 def send_return_visit_email(user_id: int, request: Request, services: Services = Depends(get_services)):
     kos_api_client = services.kos_api_client
     gmail_service = services.gmail_service
-    
+
     user = kos_api_client.get_user(user_id)
-    
+
     if user is None:
         raise HTTPException(status_code=404, detail={"message": "Could not find user"})
-            
+
     message = mailer.build_return_visit_email(user)
     mailer.send_message(
         service=gmail_service,
@@ -32,12 +32,12 @@ def send_acceptance_email(user_id: int, request: Request, services: Services = D
     gmail_service = services.gmail_service
 
     user = kos_api_client.get_user(user_id)
-    
+
     if user is None:
         raise HTTPException(status_code=404, detail={"message": "Could not find user"})
-    
+
     message = mailer.build_acceptance_email(user)
-    
+
     mailer.send_message(
         service=gmail_service,
         user_id=mailer.SENDER_USER_ID,

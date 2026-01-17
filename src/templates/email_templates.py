@@ -5,18 +5,16 @@ Use something like https://html5-editor.net/ to see and edit the format of the e
 """
 
 MEMBERSHIP_COORDINATOR_SIGNATURE: str = """
-{signature_name}
-<p>
-    <b>Membership Coordinator</b>
-</p>
+<b>Membership Team</b><br/>
+Kwartzlab
 """
 
 @dataclass
 class Email:
     subject: str | None
     body: str
-    
-    
+
+
 RETURN_EMAIL = Email(
     subject="Kwartzlab Application return request",
     body="""
@@ -139,7 +137,7 @@ HIATUS_SUBMITTED_EMAIL = Email(
 
 
 HIATUS_APPROVED_EMAIL= Email(
-    subject=None, 
+    subject=None,
     body="""
             <p>Hi {name},</p>
 

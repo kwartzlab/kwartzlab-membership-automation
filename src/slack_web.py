@@ -1,13 +1,12 @@
-import json
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
-import config
-from typing import Dict, List, Any
-
 import logging
 
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
+
+import config
+
 logger = logging.getLogger(__name__)
-    
+
 def get_users(cfg: config.Config):
     client = WebClient(
         token=cfg.slack_bot_token
@@ -33,8 +32,8 @@ def post_message_reply(cfg: config.Config, channel: str, thread_ts: str = None, 
     except SlackApiError as e:
         logger.error("Slack API error on chat_postMessage: %s", e.response["error"])
         raise e
-    
-    
+
+
 def add_reaction(cfg: config.Config, channel: str, timestamp: str, reaction: str) -> None:
     client = WebClient(
         token=cfg.slack_bot_token
@@ -50,8 +49,8 @@ def add_reaction(cfg: config.Config, channel: str, timestamp: str, reaction: str
     except SlackApiError as e:
         logger.error("Slack API error on reactions_add: %s", e.response["error"])
         raise e
-    
-    
+
+
 def remove_reaction(cfg: config.Config, channel: str, timestamp: str, reaction: str) -> None:
     client = WebClient(
         token=cfg.slack_bot_token

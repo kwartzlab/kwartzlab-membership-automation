@@ -56,9 +56,6 @@ class KosApiClient:
                 return None
             raise
 
-        if response.status_code == 204:
-            return None
-            
         return response.json()
 
     def _request_json(self, method: str, path: str, **kwargs) -> dict:

@@ -1,10 +1,16 @@
 import json
+import logging
 
 import config
 import kos_api
-from services.slack import add_default_message, add_default_reacts, insert_slack_event, post_application, build_questions_modal_view, save_slack_modal_response
-
-import logging
+from services.slack import (
+    add_default_message,
+    add_default_reacts,
+    build_questions_modal_view,
+    insert_slack_event,
+    post_application,
+    save_slack_modal_response,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,17 +43,17 @@ def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Co
             "applicant_user_id": application["user_id"],
         }
         insert_slack_event(slack_conn, event_data)
-        
+
         add_default_reacts(cfg, channel=response['channel'], timestamp=ts)
         add_default_message(cfg, channel=response['channel'], timestamp=ts)
-        
+
         modal = build_questions_modal_view(application_data=application["data"])
         logger.debug(
             "Saving slack modal response for user %s (outbox_id=%s).",
             application["user_id"],
             outbox_id,
         )
-        
+
         save_slack_modal_response(
             conn=slack_conn,
             applicant_user_id=application["user_id"],
@@ -62,12 +68,12 @@ def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Co
         kos_api_client.mark_outbox(outbox_id, last_error=str(exc)[:1000])
         return {f"Submission Failed {exc}"}
 
-    
+
 def get_application_from_outbox(kos_api_client: kos_api.KosApiClient, outbox_id: int = None):
     if outbox_id is None:
         logger.debug("Fetching next outbox item.")
         row = kos_api_client.get_next_outbox()
-    else: 
+    else:
         logger.debug("Fetching outbox by id %s.", outbox_id)
         row = kos_api_client.get_outbox(outbox_id)
 

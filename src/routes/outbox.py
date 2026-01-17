@@ -1,5 +1,6 @@
 import logging
-from fastapi import APIRouter, Request, Depends
+
+from fastapi import APIRouter, Depends, Request
 
 from services import Services, interviews
 
@@ -16,7 +17,7 @@ def process_outbox(outbox_id: int, request: Request, services: Services = Depend
     kos_api_client = services.kos_api_client
     cfg = services.config
     slack_engine = services.slack_db_engine
-    
+
     with slack_engine.begin() as slack_conn:
         response = interviews.process_one(kos_api_client=kos_api_client, slack_conn=slack_conn, cfg=cfg, outbox_id=outbox_id)
     if hasattr(response, "data"):

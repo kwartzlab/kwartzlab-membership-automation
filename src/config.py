@@ -1,6 +1,6 @@
 import os
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 
@@ -39,11 +39,12 @@ class Config:
     # Environment
     environment: str
     debug: bool
-    
+
     port: int
 
     # Paths
     project_root: str
+    archive_gdrive_url: Optional[str]
 
 
 def load_config() -> Config:
@@ -63,11 +64,11 @@ def load_config() -> Config:
         slack_app_token=getenv("SLACK_APP_TOKEN", required=True),
 
         #Default to BoD slack usergroup
-        authorized_usergroups=getenv("AUTHORIZED_USERGROUPS", "SDFB4PKGE").split(" "), 
+        authorized_usergroups=getenv("AUTHORIZED_USERGROUPS", "SDFB4PKGE").split(" "),
 
         poll_interval_seconds=int(getenv("POLL_INTERVAL_SECONDS", "30")),
         batch_size=int(getenv("BATCH_SIZE", "1")),
-        
+
         # kOS API
         kos_api_base_url=getenv("KOS_API_BASE_URL", required=True),
         kos_api_token=getenv("KOS_API_TOKEN", required=True),
@@ -88,4 +89,5 @@ def load_config() -> Config:
 
         # Paths
         project_root=str(project_root),
+        archive_gdrive_url=getenv("ARCHIVE_GDRIVE_URL"),
     )

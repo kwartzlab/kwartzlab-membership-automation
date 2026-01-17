@@ -1,12 +1,15 @@
-import json
-import config
-from db import INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL, INSERT_SLACK_EVENT_SQL, get_applicant_user_id_by_thread_ts, get_thread_ts
-from sqlalchemy import Connection
+import logging
 from typing import Any, Dict, List, Optional, Tuple
 
+from sqlalchemy import Connection
 
-import logging
-
+import config
+from db import (
+    INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL,
+    INSERT_SLACK_EVENT_SQL,
+    get_applicant_user_id_by_thread_ts,
+    get_thread_ts,
+)
 from slack_web import post_message_reply
 
 logger = logging.getLogger(__name__)
@@ -33,7 +36,7 @@ def insert_slack_event(conn: Connection, event_data: dict):
     # Resolve thread_ts for reactions if needed
     if event_data.get('thread_ts') is None and event_data.get('parent_message'):
         event_data['thread_ts'] = get_thread_ts(conn, event_data['parent_message'])
-    
+
     # Set applicant_user_id if not set and thread_ts exists
     if event_data.get('applicant_user_id') is None and event_data.get('thread_ts'):
         event_data['applicant_user_id'] = get_applicant_user_id_by_thread_ts(conn, event_data['thread_ts'])
@@ -136,7 +139,7 @@ def construct_application_blocks(
     blocks.append(
         {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*Questions & Answers:*"},
+            "text": {"type": "mrkdwn", "text": "*Questions & Answers:*"},
         }
     )
     blocks.append(
@@ -191,7 +194,7 @@ def build_questions_modal_view(
                 {
                     "type": "context",
                     "elements": [
-                        {"type": "mrkdwn", "text": f"Click to view more."}
+                        {"type": "mrkdwn", "text": "Click to view more."}
                     ],
                 }
             )
@@ -242,7 +245,7 @@ def applicant_data_to_dict(data: dict) -> dict:
     return return_dict
 
 
-def post_application(cfg: config.Config, application_data) -> None:    
+def post_application(cfg: config.Config, application_data) -> None:
     blocks = construct_application_blocks(applicant_data_to_dict(application_data))
     logger.debug("Sending application blocks to slack channel %s.", cfg.slack_channel_id)
 
@@ -252,7 +255,7 @@ def post_application(cfg: config.Config, application_data) -> None:
         text=str(blocks),
         blocks=blocks["blocks"],
     )
-    
+
     return response
 
 def add_default_reacts(cfg: config.Config, channel: str, timestamp: str) -> None:
@@ -264,7 +267,7 @@ def add_default_reacts(cfg: config.Config, channel: str, timestamp: str) -> None
             add_reaction(cfg, channel, timestamp, reaction)
         except Exception as e:
             logger.error("Failed to add reaction %s in channel %s at %s: %s", reaction, channel, timestamp, e)
-            
+
 def add_default_message(cfg: config.Config, channel: str, timestamp: str) -> None:
     from slack_web import post_message_reply
 

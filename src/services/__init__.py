@@ -1,7 +1,9 @@
 from dataclasses import dataclass
-from config import Config
+
 import db
 import kos_api
+from config import Config
+
 
 @dataclass
 class Services:

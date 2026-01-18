@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 import mailer
@@ -9,7 +11,10 @@ def get_services(request: Request) -> Services:
     return request.app.state.services
 
 @router.post("/email/{user_id}/return_visit")
-def send_return_visit_email(user_id: int, request: Request, services: Services = Depends(get_services)):
+def send_return_visit_email(
+    user_id: int,
+    services: Annotated[Services, Depends(get_services)],
+):
     kos_api_client = services.kos_api_client
     gmail_service = services.gmail_service
 
@@ -27,7 +32,10 @@ def send_return_visit_email(user_id: int, request: Request, services: Services =
     return user
 
 @router.post("/email/{user_id}/acceptance/", status_code=204)
-def send_acceptance_email(user_id: int, request: Request, services: Services = Depends(get_services)):
+def send_acceptance_email(
+    user_id: int,
+    services: Annotated[Services, Depends(get_services)],
+):
     kos_api_client = services.kos_api_client
     gmail_service = services.gmail_service
 

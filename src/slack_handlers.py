@@ -123,22 +123,8 @@ def register_app_mention_handler(app, cfg, runtime):
 
         if user_id not in runtime.cache_manager.authorized_users:
             logger.warning("Unauthorized user %s tried to use bot.", user_id)
-            send_ephemeral_message(
-                cfg,
-                channel=event.get("channel"),
-                user=user_id,
-                text="You are not authorized to use this command. Please contact the membership coordinator or the BoD for access.",
-                thread_ts=event.get("thread_ts"),
-            )
             return
-        logger.debug("Authorized user %s used bot.", user_id)
-        send_ephemeral_message(
-            cfg,
-            channel=event.get("channel"),
-            user=user_id,
-            text="You ARE authorized to use this command.",
-            thread_ts=event.get("thread_ts"),
-        )
+        logger.debug("Authorized user %s used command %s.", user_id, command)
 
 def register_reaction_handlers(app, cfg, runtime, queue):
     @app.event("reaction_added")
@@ -266,9 +252,24 @@ def register_email_shortcut_handler(app, cfg, runtime):
                     "action_id": "choice_select",
                     "placeholder": { "type": "plain_text", "text": "Pick one…" },
                     "options": [
-                        { "text": { "type": "plain_text", "text": ":white_check_mark: - Acceptance  " }, "value": "acceptance" },
-                        { "text": { "type": "plain_text", "text": ":leftwards_arrow_with_hook: - Return visit" }, "value": "return_visit" },
-                        { "text": { "type": "plain_text", "text": ":no_entry_sign: - Rejection" }, "value": "rejection" }
+                        {
+                         "text": {
+                            "type": "plain_text",
+                            "text": ":white_check_mark: - Acceptance  "
+                            },
+                         "value": "acceptance"
+                        },
+                        {
+                         "text": {
+                            "type": "plain_text",
+                            "text": ":leftwards_arrow_with_hook: - Return visit"
+                            },
+                         "value": "return_visit" },
+                        { "text": {
+                            "type": "plain_text", "text": ":no_entry_sign: - Rejection"
+                            },
+                         "value": "rejection"
+                        }
                     ]
                     }
                 },
@@ -585,7 +586,12 @@ def register_modal_handler(app, cfg, runtime):
                         "title": {"type": "plain_text", "text": "Error"},
                         "close": {"type": "plain_text", "text": "Close"},
                         "blocks": [
-                            {"type": "section", "text": {"type": "mrkdwn", "text": "Something went wrong opening the modal."}}
+                            {
+                                "type": "section",
+                                "text": {
+                                    "type": "mrkdwn", "text": "Something went wrong opening the modal."
+                                }
+                            }
                         ],
                     },
                 )

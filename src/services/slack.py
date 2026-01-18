@@ -135,7 +135,6 @@ def construct_application_blocks(
     blocks.append({"type": "divider"})
 
     # ---- CTA: open modal with questions ----
-    q_count = len(questions)
     blocks.append(
         {
             "type": "section",
@@ -182,7 +181,10 @@ def build_questions_modal_view(
     blocks: List[Dict[str, Any]] = [
         {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*Applicant:* {first} {last}\n*Email:* {_fmt(pii.get('Email Address'))}"},
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Applicant:* {first} {last}\n*Email:* {_fmt(pii.get('Email Address'))}"
+                },
         },
         {"type": "divider"},
     ]

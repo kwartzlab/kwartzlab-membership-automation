@@ -46,7 +46,9 @@ def archive_thread_events(
     first_name, last_name = _get_preferred_name(user)
     date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
 
-    filename = f"{_safe_filename(str(applicant_user_id))}_{_safe_filename(first_name)}_{_safe_filename(last_name)}_{date_str}.jsonl"
+    filename = (f"{_safe_filename(str(applicant_user_id))}_"
+               f"{_safe_filename(first_name)}_{_safe_filename(last_name)}_{date_str}.jsonl"
+    )
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     file_path = output_dir / filename

@@ -62,7 +62,14 @@ class KosApiClient:
         response = self._request(method, path, **kwargs)
         return response.json()
 
-    def _request(self, method: str, path: str, *, allow_statuses: Optional[set[int]] = None, **kwargs) -> requests.Response:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        allow_statuses: Optional[set[int]] = None,
+        **kwargs
+    ) -> requests.Response:
         url = f"{self.base_url}{path}"
         response = self.session.request(method, url, timeout=self.timeout_seconds, **kwargs)
 

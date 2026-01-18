@@ -80,7 +80,15 @@ def build_slack_runtime(cfg, kos_api_client, slack_db_engine, mailer) -> SlackRu
     socket_handler = AsyncSocketModeHandler(slack_app, cfg.slack_app_token)
     q: asyncio.Queue[dict] = asyncio.Queue()
 
-    runtime = SlackRuntime(slack_app=slack_app, socket_handler=socket_handler, queue=q, slack_db_engine=slack_db_engine, config=cfg, kos_api_client=kos_api_client, mailer=mailer)
+    runtime = SlackRuntime(
+        slack_app=slack_app,
+        socket_handler=socket_handler,
+        queue=q,
+        slack_db_engine=slack_db_engine,
+        config=cfg,
+        kos_api_client=kos_api_client,
+        mailer=mailer
+    )
 
     slack_handlers.register_app_mention_handler(slack_app, cfg, runtime)
     slack_handlers.register_reaction_handlers(slack_app, cfg, runtime, q)

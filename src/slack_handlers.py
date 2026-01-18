@@ -1,38 +1,133 @@
+import asyncio
 import json
 import logging
-import mailer
-from slack_web import send_ephemeral_message, post_message_reply
+
 import db
+import drive_archive
+import mailer
+from slack_web import post_message_reply, send_ephemeral_message
+from thread_archive import archive_thread_events
 
 logger = logging.getLogger(__name__)
+
+EMAIL_REACTION_CHOICES = {
+    "white_check_mark": "acceptance",
+    "leftwards_arrow_with_hook": "return_visit",
+    "leftward_arrow_with_hook": "return_visit",
+    "no_entry_sign": "rejection",
+}
+
+EMAIL_PUBLIC_MESSAGES = {
+    "acceptance": "This application has been approved!",
+    "return_visit": "Does anyone have any more feedback for this applicant? They have been asked to return.",
+    "rejection": "This application has been rejected.",
+}
+
+EMAIL_EPHEMERAL_LABELS = {
+    "acceptance": "Acceptance",
+    "return_visit": "Return",
+    "rejection": "Rejection",
+}
+
+
+async def _handle_reaction_email(event, cfg, runtime):
+    reaction = event.get("reaction")
+    choice = EMAIL_REACTION_CHOICES.get(reaction)
+    if not choice:
+        return
+
+    user_id = event.get("user")
+    if user_id not in runtime.cache_manager.authorized_users:
+        logger.warning("Unauthorized user %s tried to send reaction email.", user_id)
+        return
+
+    channel_id = event.get("item", {}).get("channel")
+    item_ts = event.get("item", {}).get("ts")
+    if not channel_id or not item_ts:
+        logger.warning("Reaction event missing channel or ts: %s", event)
+        return
+
+    try:
+        with runtime.slack_db_engine.connect() as conn:
+            thread_ts = db.get_thread_ts(conn, item_ts) or item_ts
+            applicant_user_id = db.get_applicant_user_id_by_thread_ts(conn, thread_ts)
+        if not applicant_user_id:
+            logger.warning("No applicant user ID found for reaction email in thread %s.", thread_ts)
+            return
+
+        user = await asyncio.to_thread(runtime.kos_api_client.get_user, int(applicant_user_id))
+        if not user:
+            logger.warning("No application found for applicant user ID %s.", applicant_user_id)
+            return
+
+        gmail_service = runtime.mailer
+        if choice == "acceptance":
+            message = mailer.build_acceptance_email(user)
+        elif choice == "return_visit":
+            message = mailer.build_return_visit_email(user)
+        elif choice == "rejection":
+            message = mailer.build_rejection_email(user)
+        else:
+            return
+
+        try:
+            logger.info("Sending reaction email to user %s", user["email"])
+            mailer.send_message(
+                service=gmail_service,
+                user_id=mailer.SENDER_USER_ID,
+                message=message,
+            )
+        except Exception:
+            logger.exception("Failed to send reaction email via Gmail API to %s.", user.get("email"))
+            return
+
+        with runtime.slack_db_engine.begin() as conn:
+            db.insert_audit_event(
+                conn,
+                action="email_sent",
+                actor_user_id=user_id,
+                applicant_user_id=str(applicant_user_id),
+                thread_ts=thread_ts,
+                metadata={
+                    "email_type": choice,
+                    "recipient_email": user.get("email"),
+                    "channel_id": channel_id,
+                },
+            )
+
+        send_ephemeral_message(
+            cfg=cfg,
+            channel=channel_id,
+            user=user_id,
+            text=f"{EMAIL_EPHEMERAL_LABELS[choice]} email sent.",
+            thread_ts=thread_ts,
+        )
+
+        post_message_reply(
+            cfg=cfg,
+            channel=channel_id,
+            thread_ts=thread_ts,
+            text=EMAIL_PUBLIC_MESSAGES[choice],
+            reply_broadcast=(choice == "return_visit"),
+        )
+    except Exception:
+        logger.exception("Failed to process reaction email.")
+
 
 def register_app_mention_handler(app, cfg, runtime):
     @app.event("app_mention")
     async def on_app_mention(event, body):
         if event.get("channel") != cfg.slack_channel_id:
             return
-        
+
         command = event.get("text", "").lower().replace(f"<@{body['authorizations'][0]['user_id']}>", "").strip()
-        user_id = event.get("user") 
+        user_id = event.get("user")
 
         if user_id not in runtime.cache_manager.authorized_users:
-            logger.info("Unauthorized user %s tried to use bot.", user_id)
-            send_ephemeral_message(
-                cfg,
-                channel=event.get("channel"),
-                user=user_id,
-                text="You are not authorized to use this command. Please contact the membership coordinator or the BoD for access.",
-                thread_ts=event.get("thread_ts"),
-            )
+            logger.warning("Unauthorized user %s tried to use bot.", user_id)
             return
-        logger.info("Authorized user %s used bot.", user_id)
-        send_ephemeral_message(
-            cfg,
-            channel=event.get("channel"),
-            user=user_id,
-            text="You ARE authorized to use this command.",
-            thread_ts=event.get("thread_ts"),
-        )
+        logger.debug("Authorized user %s used command %s.", user_id, command)
+
 
 def register_reaction_handlers(app, cfg, runtime, queue):
     @app.event("reaction_added")
@@ -51,6 +146,7 @@ def register_reaction_handlers(app, cfg, runtime, queue):
             "applicant_user_id": None,
         }
         await queue.put(event_data)
+        await _handle_reaction_email(event, cfg, runtime)
 
     @app.event("reaction_removed")
     async def on_reaction_removed(event, body):
@@ -69,6 +165,7 @@ def register_reaction_handlers(app, cfg, runtime, queue):
         }
         await queue.put(event_data)
 
+
 def register_message_handler(app, cfg, runtime, queue):
     @app.event("message")
     async def on_message(event, body):
@@ -86,25 +183,25 @@ def register_message_handler(app, cfg, runtime, queue):
             parent_message = event.get("thread_ts") if event.get("thread_ts") else None
             text = event.get("text", "")
             user_id = event.get("user")
-            
+
         elif event.get("subtype") == "message_changed":
             message = event["message"]
-            
+
             event_type = "edit"
             thread_ts = message.get("thread_ts") or message["ts"]
             parent_message = message["ts"]
             text = message.get("text", "")
             user_id = message.get("user")
-            
+
         elif event.get("subtype") == "message_deleted":
             message = event["previous_message"]
-            
+
             event_type = "delete"
             thread_ts = message.get("thread_ts") or event["deleted_ts"]
             parent_message = event.get("deleted_ts")
             text = message.get("text", "")
             user_id = message.get("user")
-            
+
         else:
             return
 
@@ -121,10 +218,11 @@ def register_message_handler(app, cfg, runtime, queue):
         }
         await queue.put(event_data)
 
+
 def register_email_shortcut_handler(app, cfg, runtime):
     @app.shortcut("email_applicant")
     async def handle_shortcuts(ack, body, logger):
-        await ack()   # REQUIRED for shortcuts
+        await ack()  # REQUIRED for shortcuts
 
         user = body["user"]["id"]
         channel = body["channel"]["id"]
@@ -144,121 +242,246 @@ def register_email_shortcut_handler(app, cfg, runtime):
             cfg=cfg,
             channel=channel,
             user=user,
-            text=f"Please choose the type of email to send and provide signature details:",
+            text="Please choose the type of email to send:",
             blocks=[
-                {
-                    "type": "section",
-                    "text": { "type": "mrkdwn", "text": f"*<@{user}> Choose an option and enter signature details:*" }
-                },
+                {"type": "section", "text": {"type": "mrkdwn", "text": f"*<@{user}> Choose an option:*"}},
                 {
                     "type": "input",
                     "block_id": "choice_block",
-                    "label": { "type": "plain_text", "text": "Email type:" },
+                    "label": {"type": "plain_text", "text": "Email type:"},
                     "element": {
-                    "type": "static_select",
-                    "action_id": "choice_select",
-                    "placeholder": { "type": "plain_text", "text": "Pick one…" },
-                    "options": [
-                        { "text": { "type": "plain_text", "text": ":white_check_mark: - Acceptance  " }, "value": "acceptance" },
-                        { "text": { "type": "plain_text", "text": ":leftwards_arrow_with_hook: - Return visit" }, "value": "return_visit" },
-                        { "text": { "type": "plain_text", "text": ":no_entry_sign: - Rejection" }, "value": "rejection" }
-                    ]
-                    }
-                },
-                {
-                    "type": "input",
-                    "block_id": "sig_name_block",
-                    "label": { "type": "plain_text", "text": "Signature name" },
-                    "element": {
-                        "type": "plain_text_input",
-                        "action_id": "sig_name",
-                        "initial_value": runtime.cache_manager.users_cache.get(user, ""),
-                        "placeholder": { "type": "plain_text", "text": "e.g., Alex Chen" }
-                    }
+                        "type": "static_select",
+                        "action_id": "choice_select",
+                        "placeholder": {"type": "plain_text", "text": "Pick one…"},
+                        "options": [
+                            {
+                                "text": {"type": "plain_text", "text": ":white_check_mark: - Acceptance  "},
+                                "value": "acceptance",
+                            },
+                            {
+                                "text": {"type": "plain_text", "text": ":leftwards_arrow_with_hook: - Return visit"},
+                                "value": "return_visit",
+                            },
+                            {
+                                "text": {"type": "plain_text", "text": ":no_entry_sign: - Rejection"},
+                                "value": "rejection",
+                            },
+                        ],
+                    },
                 },
                 {
                     "type": "input",
                     "optional": True,
-                    "block_id": "sig_role_block",
-                    "label": { "type": "plain_text", "text": "Signature role" },
+                    "block_id": "bcc_block",
+                    "label": {"type": "plain_text", "text": "BCC"},
                     "element": {
-                        "type": "plain_text_input",
-                        "action_id": "sig_role",
-                        "placeholder": { "type": "plain_text", "text": "e.g., Membership Coordinator" }
-                    }
+                        "type": "checkboxes",
+                        "action_id": "bcc_self",
+                        "options": [
+                            {"text": {"type": "plain_text", "text": "BCC membership@kwartzlab.ca"}, "value": "bcc_self"}
+                        ],
+                        "initial_options": [
+                            {"text": {"type": "plain_text", "text": "BCC membership@kwartzlab.ca"}, "value": "bcc_self"}
+                        ],
+                    },
                 },
                 {
                     "type": "actions",
                     "elements": [
-                    {
-                        "type": "button",
-                        "text": { "type": "plain_text", "text": "Confirm" },
-                        "style": "primary",
-                        "action_id": "confirm_submit",
-                        "value": "confirm"
-                    },
-                    {
-                        "type": "button",
-                        "text": { "type": "plain_text", "text": "Cancel" },
-                        "style": "danger",
-                        "action_id": "email_cancel",
-                        "value": "cancel"
-                    }
-                    ]
-                }
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "Confirm"},
+                            "style": "primary",
+                            "action_id": "confirm_submit",
+                            "value": "confirm",
+                        },
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "Cancel"},
+                            "style": "danger",
+                            "action_id": "email_cancel",
+                            "value": "cancel",
+                        },
+                    ],
+                },
             ],
             thread_ts=thread_ts,
         )
-        
-        logger.info("Shortcut response: %s", resp)
+
+        logger.debug("Shortcut response sent for user %s: %s", user, resp)
+
+
+def register_archive_shortcut_handler(app, cfg, runtime):
+    @app.shortcut("archive_thread")
+    async def handle_archive_shortcut(ack, body, logger):
+        await ack()
+
+        user_id = body.get("user", {}).get("id")
+        if user_id not in runtime.cache_manager.authorized_users:
+            send_ephemeral_message(
+                cfg=cfg,
+                channel=body.get("channel", {}).get("id"),
+                user=user_id,
+                text="You are not authorized to archive threads.",
+                thread_ts=body.get("message", {}).get("thread_ts") or body.get("message", {}).get("ts"),
+            )
+            return
+
+        thread_ts = body.get("message", {}).get("thread_ts") or body.get("message", {}).get("ts")
+        if not thread_ts:
+            send_ephemeral_message(
+                cfg=cfg,
+                channel=body.get("channel", {}).get("id"),
+                user=user_id,
+                text="Could not determine the thread to archive.",
+            )
+            return
+
+        drive_link = None
+        with runtime.slack_db_engine.begin() as conn:
+            archive_path = archive_thread_events(
+                thread_ts=thread_ts,
+                slack_conn=conn,
+                kos_api_client=runtime.kos_api_client,
+            )
+            if cfg.archive_gdrive_url:
+                try:
+                    drive_link = await asyncio.to_thread(
+                        drive_archive.upload_file_to_drive,
+                        archive_path,
+                        cfg.archive_gdrive_url,
+                        credentials_file=cfg.credentials_file,
+                        token_file=cfg.token_file,
+                    )
+                except Exception:
+                    logger.exception("Failed to upload archive to Google Drive.")
+            db.insert_audit_event(
+                conn,
+                action="thread_archived",
+                actor_user_id=user_id,
+                applicant_user_id=db.get_applicant_user_id_by_thread_ts(conn, thread_ts),
+                thread_ts=thread_ts,
+                metadata={
+                    "archive_path": str(archive_path),
+                    "archive_gdrive_url": drive_link,
+                },
+            )
+
+        archive_message = f"Thread archived to {archive_path}."
+        if drive_link:
+            archive_message = f"{archive_message} Uploaded to Drive: {drive_link}"
+        send_ephemeral_message(
+            cfg=cfg,
+            channel=body.get("channel", {}).get("id"),
+            user=user_id,
+            text=archive_message,
+            thread_ts=thread_ts,
+        )
+
 
 def register_email_actions(app, cfg, runtime):
-    
     @app.action("confirm_submit")
     async def handle_send_email(ack, body, logger, respond):
         await ack()
-        logger.info(body)
+        logger.debug(
+            "Email action received (user=%s, action=%s).",
+            body.get("user", {}).get("id"),
+            body.get("actions", [{}])[0].get("action_id"),
+        )
         try:
             choice = body["state"]["values"]["choice_block"]["choice_select"]["selected_option"]["value"]
-            sig_name = body["state"]["values"]["sig_name_block"]["sig_name"]["value"]
-            sig_role = body["state"]["values"]["sig_role_block"].get("sig_role", {}).get("value", "")
+            bcc_selected = body["state"]["values"].get("bcc_block", {}).get("bcc_self", {}).get("selected_options", [])
+            bcc_email = mailer.MEMBERSHIP_GROUP_FROM_EMAIL if bcc_selected else None
             with runtime.slack_db_engine.connect() as conn:
                 applicant_user_id = db.get_applicant_user_id_by_thread_ts(conn, body["container"]["thread_ts"])
             if not applicant_user_id:
                 raise ValueError("No applicant user ID found for this message.")
 
-            with runtime.kos_db_engine.begin() as conn:
-                user = db.get_user_by_id(conn, int(applicant_user_id))                    
-                if not user:
-                    raise ValueError("No application found for applicant user ID.")
-                        
+            user = await asyncio.to_thread(runtime.kos_api_client.get_user, int(applicant_user_id))
+            if not user:
+                raise ValueError("No application found for applicant user ID.")
+
             gmail_service = runtime.mailer
-            
 
             email_sent = False
             if choice == "acceptance":
-                message = mailer.build_acceptance_email(user)
+                message = mailer.build_acceptance_email(
+                    user,
+                    bcc=bcc_email,
+                )
             elif choice == "return_visit":
-                message = mailer.build_return_visit_email(user)
+                message = mailer.build_return_visit_email(
+                    user,
+                    bcc=bcc_email,
+                )
             elif choice == "rejection":
-                message = mailer.build_rejection_email(user)
+                message = mailer.build_rejection_email(
+                    user,
+                    bcc=bcc_email,
+                )
             else:
                 raise ValueError("Invalid email choice.")
-            
+
             try:
                 logger.info("Sending email to user %s", user["email"])
-                mailer.send_message(
-                    service=gmail_service,
-                    user_id=mailer.SENDER_USER_ID,
-                    message=message
-                )
-            except Exception as e:
-                logger.error("Failed to send email via Gmail API: %s", e)
-            
+                mailer.send_message(service=gmail_service, user_id=mailer.SENDER_USER_ID, message=message)
+                email_sent = True
+            except Exception:
+                logger.exception("Failed to send email via Gmail API to %s.", user.get("email"))
+                email_sent = False
+
         except Exception as e:
-            logger.error("Failed to send email: %s", e)
+            logger.exception("Failed to send email.")
             raise e
-        
+
+        if email_sent:
+            channel_id = body.get("channel", {}).get("id")
+            thread_ts = body.get("container", {}).get("thread_ts")
+            user_id = body.get("user", {}).get("id")
+            applicant_user_id = str(applicant_user_id)
+
+            public_messages = {
+                "acceptance": EMAIL_PUBLIC_MESSAGES["acceptance"],
+                "return_visit": EMAIL_PUBLIC_MESSAGES["return_visit"],
+                "rejection": EMAIL_PUBLIC_MESSAGES["rejection"],
+            }
+            ephemeral_labels = {
+                "acceptance": EMAIL_EPHEMERAL_LABELS["acceptance"],
+                "return_visit": EMAIL_EPHEMERAL_LABELS["return_visit"],
+                "rejection": EMAIL_EPHEMERAL_LABELS["rejection"],
+            }
+
+            if channel_id and thread_ts and user_id:
+                with runtime.slack_db_engine.begin() as conn:
+                    db.insert_audit_event(
+                        conn,
+                        action="email_sent",
+                        actor_user_id=user_id,
+                        applicant_user_id=applicant_user_id,
+                        thread_ts=thread_ts,
+                        metadata={
+                            "email_type": choice,
+                            "recipient_email": user.get("email"),
+                            "channel_id": channel_id,
+                        },
+                    )
+
+                send_ephemeral_message(
+                    cfg=cfg,
+                    channel=channel_id,
+                    user=user_id,
+                    text=f"{ephemeral_labels[choice]} email sent.",
+                    thread_ts=thread_ts,
+                )
+
+                post_message_reply(
+                    cfg=cfg,
+                    channel=channel_id,
+                    thread_ts=thread_ts,
+                    text=public_messages[choice],
+                    reply_broadcast=(choice == "return_visit"),
+                )
+
         # post_message_reply(
         #         cfg=cfg,
         #         channel=body["channel"]["id"],
@@ -272,16 +495,15 @@ def register_email_actions(app, cfg, runtime):
         except Exception:
             pass
 
-        await respond(
-            replace_original=True,
-            text="Cancelled.",
-            blocks=[]
-        )
+        await respond(replace_original=True, text="Cancelled.", blocks=[])
 
     @app.action("choice_select")
     async def handle_some_action(ack, body, logger):
         await ack()
-        logger.info(body)
+        logger.debug(
+            "Choice select action received (user=%s).",
+            body.get("user", {}).get("id"),
+        )
 
     @app.action("email_cancel")
     async def cancel(ack, respond):
@@ -292,12 +514,9 @@ def register_email_actions(app, cfg, runtime):
         except Exception:
             pass
 
-        await respond(
-            replace_original=True,
-            text="Cancelled.",
-            blocks=[]
-        )
-        
+        await respond(replace_original=True, text="Cancelled.", blocks=[])
+
+
 def register_modal_handler(app, cfg, runtime):
     @app.action("view_application_questions")
     async def handle_view_questions(ack, body, client, logger):
@@ -346,7 +565,10 @@ def register_modal_handler(app, cfg, runtime):
                         "title": {"type": "plain_text", "text": "Error"},
                         "close": {"type": "plain_text", "text": "Close"},
                         "blocks": [
-                            {"type": "section", "text": {"type": "mrkdwn", "text": "Something went wrong opening the modal."}}
+                            {
+                                "type": "section",
+                                "text": {"type": "mrkdwn", "text": "Something went wrong opening the modal."},
+                            }
                         ],
                     },
                 )

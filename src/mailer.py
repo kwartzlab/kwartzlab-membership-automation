@@ -1,7 +1,7 @@
 import base64
-from pathlib import Path
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from pathlib import Path
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -10,7 +10,10 @@ from googleapiclient.discovery import build
 
 from templates import email_templates
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
+SCOPES = [
+    "https://www.googleapis.com/auth/gmail.send",
+    "https://www.googleapis.com/auth/drive.file",
+]
 
 GMAIL_API_SERVICE = "gmail"
 GMAIL_API_VERSION = "v1"
@@ -21,9 +24,14 @@ SENDER_USER_ID = "me"
 MEMBERSHIP_GROUP_FROM_NAME = "Membership Coordinator"
 MEMBERSHIP_GROUP_FROM_EMAIL = "membership@kwartzlab.ca"
 MEMBERSHIP_GROUP_REPLY_TO = "membership@kwartzlab.ca"
+DEFAULT_SIGNATURE_ROLE = "Membership Coordinator"
 
-def get_gmail_service(credentials_file: Path, token_file: Path) -> object:
+
+def get_gmail_service(credentials_file: str, token_file: str) -> object:
     creds = None
+    base_path = Path(__file__).resolve().parents[1]
+    credentials_file = Path(base_path, credentials_file)
+    token_file = Path(base_path, token_file)
 
     if token_file.exists():
         creds = Credentials.from_authorized_user_file(str(token_file), SCOPES)
@@ -42,6 +50,7 @@ def get_gmail_service(credentials_file: Path, token_file: Path) -> object:
 
     return build(GMAIL_API_SERVICE, GMAIL_API_VERSION, credentials=creds, cache_discovery=False)
 
+
 def build_group_html_message(
     to: str,
     subject: str,
@@ -49,12 +58,15 @@ def build_group_html_message(
     html_body: str,
     from_name: str,
     from_email: str,
+    bcc: str | None = None,
     reply_to: str | None = None,
 ) -> dict:
     msg = MIMEMultipart("alternative")
     msg["to"] = to
     msg["subject"] = subject
     msg["from"] = f"{from_name} <{from_email}>" if from_name else from_email
+    if bcc:
+        msg["bcc"] = bcc
 
     if reply_to:
         msg["reply-to"] = reply_to
@@ -65,28 +77,33 @@ def build_group_html_message(
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
     return {"raw": raw}
 
+
 def send_message(service, user_id: str, message: dict):
-    return (
-        service.users()
-        .messages()
-        .send(userId=user_id, body=message)
-        .execute()
-    )
+    return service.users().messages().send(userId=user_id, body=message).execute()
 
 
-def build_email_with_template(to: str,
-                              from_name: str,
-                              from_email: str,
-                              email_template: email_templates.Email,
-                              template_vars,
-                              signature: str,
-                              reply_to: str = None,
-                              signature_name: str = ""):
-    
+def build_email_with_template(
+    to: str,
+    from_name: str,
+    from_email: str,
+    email_template: email_templates.Email,
+    template_vars,
+    signature: str,
+    bcc: str | None = None,
+    reply_to: str = None,
+    signature_name: str = "",
+    signature_role: str | None = None,
+):
     template_subject = email_template.subject
     email_body = email_template.body.format(**template_vars)
-    email_body += signature.format(signature_name=signature_name)
-    
+    if signature_role is None:
+        signature_role = DEFAULT_SIGNATURE_ROLE
+    signature_role_block = f"<p><b>{signature_role}</b></p>" if signature_role else ""
+    email_body += signature.format(
+        signature_name=signature_name,
+        signature_role_block=signature_role_block,
+    )
+
     message = build_group_html_message(
         to=to,
         subject=template_subject,
@@ -94,44 +111,77 @@ def build_email_with_template(to: str,
         html_body=email_body,
         from_name=from_name,
         from_email=from_email,
-        reply_to=reply_to
+        bcc=bcc,
+        reply_to=reply_to,
     )
 
     return message
 
 
-def build_acceptance_email(user):
+def build_acceptance_email(
+    user,
+    *,
+    from_name: str | None = None,
+    signature_name: str | None = None,
+    signature_role: str | None = None,
+    bcc: str | None = None,
+    reply_to: str | None = None,
+):
     return build_email_with_template(
-            to=user["email"],
-            from_name=MEMBERSHIP_GROUP_FROM_NAME,
-            from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
-            email_template=email_templates.ACCEPTENCE_EMAIL,
-            template_vars={
-                "name": user["first_preferred"]
-            },
-            signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
-        )
+        to=user["email"],
+        from_name=from_name or MEMBERSHIP_GROUP_FROM_NAME,
+        from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
+        email_template=email_templates.ACCEPTENCE_EMAIL,
+        template_vars={"name": user["first_preferred"]},
+        signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
+        bcc=bcc,
+        signature_name=signature_name or "",
+        signature_role=signature_role,
+        reply_to=reply_to or MEMBERSHIP_GROUP_REPLY_TO,
+    )
 
-def build_return_visit_email(user):
-    return build_email_with_template(
-            to=user["email"],
-            from_name=MEMBERSHIP_GROUP_FROM_NAME,
-            from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
-            email_template=email_templates.RETURN_EMAIL,
-            template_vars={
-                "name": user["first_preferred"]
-            },
-            signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
-        )
 
-def build_rejection_email(user):
+def build_return_visit_email(
+    user,
+    *,
+    from_name: str | None = None,
+    signature_name: str | None = None,
+    signature_role: str | None = None,
+    bcc: str | None = None,
+    reply_to: str | None = None,
+):
     return build_email_with_template(
-            to=user["email"],
-            from_name=MEMBERSHIP_GROUP_FROM_NAME,
-            from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
-            email_template=email_templates.REJECTION_EMAIL,
-            template_vars={
-                "name": user["first_preferred"]
-            },
-            signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
-        )
+        to=user["email"],
+        from_name=from_name or MEMBERSHIP_GROUP_FROM_NAME,
+        from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
+        email_template=email_templates.RETURN_EMAIL,
+        template_vars={"name": user["first_preferred"]},
+        signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
+        bcc=bcc,
+        signature_name=signature_name or "",
+        signature_role=signature_role,
+        reply_to=reply_to or MEMBERSHIP_GROUP_REPLY_TO,
+    )
+
+
+def build_rejection_email(
+    user,
+    *,
+    from_name: str | None = None,
+    signature_name: str | None = None,
+    signature_role: str | None = None,
+    bcc: str | None = None,
+    reply_to: str | None = None,
+):
+    return build_email_with_template(
+        to=user["email"],
+        from_name=from_name or MEMBERSHIP_GROUP_FROM_NAME,
+        from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
+        email_template=email_templates.REJECTION_EMAIL,
+        template_vars={"name": user["first_preferred"]},
+        signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
+        bcc=bcc,
+        signature_name=signature_name or "",
+        signature_role=signature_role,
+        reply_to=reply_to or MEMBERSHIP_GROUP_REPLY_TO,
+    )

@@ -1,26 +1,36 @@
 import json
-from sqlalchemy import Connection
+import logging
 
 import config
-from db import FETCH_OUTBOX_BY_ID_SQL, FETCH_NEXT_OUTBOX_SQL, mark_outbox_failed, mark_outbox_success
-from services.slack import add_default_message, add_default_reacts, insert_slack_event, post_application, build_questions_modal_view, save_slack_modal_response
-
-import logging
+import kos_api
+from services.slack import (
+    add_default_message,
+    add_default_reacts,
+    build_questions_modal_view,
+    insert_slack_event,
+    post_application,
+    save_slack_modal_response,
+)
 
 logger = logging.getLogger(__name__)
 
-def process_one(kos_conn: Connection, slack_conn: Connection, cfg: config.Config, outbox_id: int = None):
 
-    application = get_application_from_outbox(conn=kos_conn, outbox_id=outbox_id)
+def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Config, outbox_id: int = None):
+    application = get_application_from_outbox(kos_api_client, outbox_id=outbox_id)
     if not application:
-        return {"No such outbox item"}
+        return {"No outbox item to process"}
+    outbox_id = application["outbox_id"]
     try:
-        logging.info("Processing submission %s", {application['form_submission_id']})
+        logger.info(
+            "Processing submission %s (outbox_id=%s).",
+            application["form_submission_id"],
+            outbox_id,
+        )
         response = post_application(
-                cfg=cfg,
-                application_data=application["data"],
-            )
-        ts = response['ts']
+            cfg=cfg,
+            application_data=application["data"],
+        )
+        ts = response["ts"]
         event_data = {
             "thread_ts": ts,
             "user_id": "bot",
@@ -33,36 +43,38 @@ def process_one(kos_conn: Connection, slack_conn: Connection, cfg: config.Config
             "applicant_user_id": application["user_id"],
         }
         insert_slack_event(slack_conn, event_data)
-        
-        add_default_reacts(cfg, channel=response['channel'], timestamp=ts)
-        add_default_message(cfg, channel=response['channel'], timestamp=ts)
-        
+
+        add_default_reacts(cfg, channel=response["channel"], timestamp=ts)
+        add_default_message(cfg, channel=response["channel"], timestamp=ts)
+
         modal = build_questions_modal_view(application_data=application["data"])
-        logger.info("Saving slack modal response for user %s", application["user_id"])
-        
+        logger.debug(
+            "Saving slack modal response for user %s (outbox_id=%s).",
+            application["user_id"],
+            outbox_id,
+        )
+
         save_slack_modal_response(
             conn=slack_conn,
             applicant_user_id=application["user_id"],
             thread_ts=ts,
             slack_modal_blocks=json.dumps(modal),
         )
+        kos_api_client.mark_outbox(outbox_id)
         return response
-        
+
     except Exception as exc:
-        logging.info("Failed to process outbox_id: %s", outbox_id)
-        mark_outbox_failed(conn=kos_conn, outbox_id=outbox_id, exc=exc)                
+        logger.exception("Failed to process outbox_id %s.", outbox_id)
+        kos_api_client.mark_outbox(outbox_id, last_error=str(exc)[:1000])
         return {f"Submission Failed {exc}"}
 
-    mark_outbox_success(conn=kos_conn, outbox_id=outbox_id)
-    return {"Submission Successful"}
 
-    
-def get_application_from_outbox(conn, outbox_id: int = None):
+def get_application_from_outbox(kos_api_client: kos_api.KosApiClient, outbox_id: int = None):
     if outbox_id is None:
-        logger.info("Fetching next outbox item")
-        row = conn.execute(FETCH_NEXT_OUTBOX_SQL).mappings().first()
-    else: 
-        logger.info("Fetching outbox by id %s", outbox_id)
-        row = conn.execute(FETCH_OUTBOX_BY_ID_SQL, {"outbox_id": outbox_id}).mappings().first()
+        logger.debug("Fetching next outbox item.")
+        row = kos_api_client.get_next_outbox()
+    else:
+        logger.debug("Fetching outbox by id %s.", outbox_id)
+        row = kos_api_client.get_outbox(outbox_id)
 
     return row

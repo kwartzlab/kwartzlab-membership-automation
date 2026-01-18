@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 
@@ -12,14 +13,12 @@ def getenv(name: str, default: Optional[str] = None, *, required: bool = False) 
 
 @dataclass(frozen=True)
 class Config:
-    # kOS Database
-    db_user: str
-    db_pass: str
-    db_host: str
-    db_port: int
-    db_name: str
+    # kOS API
+    kos_api_base_url: str
+    kos_api_token: str
+    kos_api_timeout_seconds: int
 
-    #SQLite db
+    # SQLite db
     sqlite_db_path: str
 
     # Slack
@@ -40,42 +39,45 @@ class Config:
     # Environment
     environment: str
     debug: bool
-    
+
     port: int
+
+    # Paths
+    project_root: str
+    archive_gdrive_url: Optional[str]
 
 
 def load_config() -> Config:
     env = getenv("ENVIRONMENT", "development")
+    project_root = Path(getenv("PROJECT_ROOT", str(Path(__file__).resolve().parent.parent))).resolve()
+
+    def resolve_path(value: str) -> str:
+        path = Path(value)
+        return str(path if path.is_absolute() else project_root / path)
 
     return Config(
         # Slack
         slack_bot_token=getenv("SLACK_BOT_TOKEN", required=True),
         slack_channel_id=getenv("SLACK_CHANNEL_ID", required=True),
         slack_app_token=getenv("SLACK_APP_TOKEN", required=True),
-
-        #Default to BoD slack usergroup
-        authorized_usergroups=getenv("AUTHORIZED_USERGROUPS", "SDFB4PKGE").split(" "), 
-
+        # Default to BoD slack usergroup
+        authorized_usergroups=getenv("AUTHORIZED_USERGROUPS", "SDFB4PKGE").split(" "),
         poll_interval_seconds=int(getenv("POLL_INTERVAL_SECONDS", "30")),
         batch_size=int(getenv("BATCH_SIZE", "1")),
-        
-        # db
-        db_user=getenv("DB_USERNAME", required=True),
-        db_pass=getenv("DB_PASSWORD", required=True),
-        db_host=getenv("DB_HOST", required=True),
-        db_port=getenv("DB_PORT", required=True),
-        db_name=getenv("DB_DATABASE", required=True),
-
-        sqlite_db_path=getenv("SQLITE_DB_PATH", "slack_threads.db"),
-
+        # kOS API
+        kos_api_base_url=getenv("KOS_API_BASE_URL", required=True),
+        kos_api_token=getenv("KOS_API_TOKEN", required=True),
+        kos_api_timeout_seconds=int(getenv("KOS_API_TIMEOUT_SECONDS", "10")),
+        sqlite_db_path=resolve_path(getenv("SQLITE_DB_PATH", "slack_threads.db")),
         # Email
-        credentials_file=getenv("CREDENTIALS_FILE", "credentials.json"),
-        token_file=getenv("TOKEN_FILE", "token.json"),
-
-        #API Service
+        credentials_file=resolve_path(getenv("CREDENTIALS_FILE", "credentials.json")),
+        token_file=resolve_path(getenv("TOKEN_FILE", "token.json")),
+        # API Service
         port=int(getenv("PORT", 8080)),
-
         # Meta
         environment=env,
-        debug=getenv("DEBUG", "false").lower() == "true"
+        debug=getenv("DEBUG", "false").lower() == "true",
+        # Paths
+        project_root=str(project_root),
+        archive_gdrive_url=getenv("ARCHIVE_GDRIVE_URL"),
     )

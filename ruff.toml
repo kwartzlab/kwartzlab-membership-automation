@@ -1,0 +1,16 @@
+target-version = "py310"
+line-length = 120
+src = ["src", "tests"]
+
+exclude = [
+    ".venv",
+    "__pycache__",
+    "archives",
+    "src/templates/email_templates.py"
+]
+
+[lint]
+select = ["E", "F", "W", "I", "B"]
+
+[format]
+quote-style = "double"

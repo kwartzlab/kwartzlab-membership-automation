@@ -14,8 +14,8 @@ from services.slack import (
 
 logger = logging.getLogger(__name__)
 
-def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Config, outbox_id: int = None):
 
+def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Config, outbox_id: int = None):
     application = get_application_from_outbox(kos_api_client, outbox_id=outbox_id)
     if not application:
         return {"No outbox item to process"}
@@ -27,10 +27,10 @@ def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Co
             outbox_id,
         )
         response = post_application(
-                cfg=cfg,
-                application_data=application["data"],
-            )
-        ts = response['ts']
+            cfg=cfg,
+            application_data=application["data"],
+        )
+        ts = response["ts"]
         event_data = {
             "thread_ts": ts,
             "user_id": "bot",
@@ -44,8 +44,8 @@ def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Co
         }
         insert_slack_event(slack_conn, event_data)
 
-        add_default_reacts(cfg, channel=response['channel'], timestamp=ts)
-        add_default_message(cfg, channel=response['channel'], timestamp=ts)
+        add_default_reacts(cfg, channel=response["channel"], timestamp=ts)
+        add_default_message(cfg, channel=response["channel"], timestamp=ts)
 
         modal = build_questions_modal_view(application_data=application["data"])
         logger.debug(

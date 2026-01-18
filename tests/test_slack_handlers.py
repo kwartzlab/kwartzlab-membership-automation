@@ -17,18 +17,21 @@ class FakeApp:
         def decorator(fn):
             self.actions[action_id] = fn
             return fn
+
         return decorator
 
     def shortcut(self, name):
         def decorator(fn):
             self.shortcuts[name] = fn
             return fn
+
         return decorator
 
     def event(self, name):
         def decorator(fn):
             self.events[name] = fn
             return fn
+
         return decorator
 
 

@@ -16,6 +16,7 @@ class FakeApp:
         def decorator(fn):
             self.shortcuts[name] = fn
             return fn
+
         return decorator
 
 
@@ -45,7 +46,9 @@ async def test_archive_shortcut_writes_audit_and_ephemeral(runtime, cfg, slack_d
         )
 
     monkeypatch.setattr(slack_handlers, "archive_thread_events", lambda **kwargs: Path("archive.zip"))
-    monkeypatch.setattr(slack_handlers.drive_archive, "upload_file_to_drive", lambda *args, **kwargs: "https://drive.example/file")
+    monkeypatch.setattr(
+        slack_handlers.drive_archive, "upload_file_to_drive", lambda *args, **kwargs: "https://drive.example/file"
+    )
 
     ephemeral = []
     monkeypatch.setattr(slack_handlers, "send_ephemeral_message", lambda **kwargs: ephemeral.append(kwargs))

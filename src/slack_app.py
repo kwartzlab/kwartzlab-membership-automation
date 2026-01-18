@@ -14,6 +14,7 @@ from slack_web import get_user_group, get_users
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class UserCacheManager:
     users_cache: dict = None
@@ -52,6 +53,7 @@ class UserCacheManager:
 
             await asyncio.sleep(3600)  # Update every hour
 
+
 @dataclass
 class SlackRuntime:
     slack_app: AsyncApp
@@ -74,6 +76,7 @@ class SlackRuntime:
             asyncio.create_task(self.cache_manager.update_users_info()),
         ]
 
+
 def build_slack_runtime(cfg, kos_api_client, slack_db_engine, mailer) -> SlackRuntime:
     slack_app = AsyncApp(token=cfg.slack_bot_token)
     logging.getLogger("slack_bolt.AsyncApp").setLevel(logging.WARNING)
@@ -87,7 +90,7 @@ def build_slack_runtime(cfg, kos_api_client, slack_db_engine, mailer) -> SlackRu
         slack_db_engine=slack_db_engine,
         config=cfg,
         kos_api_client=kos_api_client,
-        mailer=mailer
+        mailer=mailer,
     )
 
     slack_handlers.register_app_mention_handler(slack_app, cfg, runtime)

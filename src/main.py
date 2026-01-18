@@ -32,10 +32,7 @@ if __name__ == "__main__":
 
     logger.info("Creating services container...")
     services = Services(
-        config=cfg,
-        kos_api_client=kos_api_client,
-        slack_db_engine=slack_engine,
-        gmail_service=gmail_service
+        config=cfg, kos_api_client=kos_api_client, slack_db_engine=slack_engine, gmail_service=gmail_service
     )
 
     logger.info("Creating FastAPI app...")

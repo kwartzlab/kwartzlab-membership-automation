@@ -29,6 +29,7 @@ EMAIL_EPHEMERAL_LABELS = {
     "rejection": "Rejection",
 }
 
+
 async def _handle_reaction_email(event, cfg, runtime):
     reaction = event.get("reaction")
     choice = EMAIL_REACTION_CHOICES.get(reaction)
@@ -112,6 +113,7 @@ async def _handle_reaction_email(event, cfg, runtime):
     except Exception:
         logger.exception("Failed to process reaction email.")
 
+
 def register_app_mention_handler(app, cfg, runtime):
     @app.event("app_mention")
     async def on_app_mention(event, body):
@@ -125,6 +127,7 @@ def register_app_mention_handler(app, cfg, runtime):
             logger.warning("Unauthorized user %s tried to use bot.", user_id)
             return
         logger.debug("Authorized user %s used command %s.", user_id, command)
+
 
 def register_reaction_handlers(app, cfg, runtime, queue):
     @app.event("reaction_added")
@@ -161,6 +164,7 @@ def register_reaction_handlers(app, cfg, runtime, queue):
             "applicant_user_id": None,
         }
         await queue.put(event_data)
+
 
 def register_message_handler(app, cfg, runtime, queue):
     @app.event("message")
@@ -214,10 +218,11 @@ def register_message_handler(app, cfg, runtime, queue):
         }
         await queue.put(event_data)
 
+
 def register_email_shortcut_handler(app, cfg, runtime):
     @app.shortcut("email_applicant")
     async def handle_shortcuts(ack, body, logger):
-        await ack()   # REQUIRED for shortcuts
+        await ack()  # REQUIRED for shortcuts
 
         user = body["user"]["id"]
         channel = body["channel"]["id"]
@@ -239,86 +244,72 @@ def register_email_shortcut_handler(app, cfg, runtime):
             user=user,
             text="Please choose the type of email to send:",
             blocks=[
-                {
-                    "type": "section",
-                    "text": { "type": "mrkdwn", "text": f"*<@{user}> Choose an option:*" }
-                },
+                {"type": "section", "text": {"type": "mrkdwn", "text": f"*<@{user}> Choose an option:*"}},
                 {
                     "type": "input",
                     "block_id": "choice_block",
-                    "label": { "type": "plain_text", "text": "Email type:" },
+                    "label": {"type": "plain_text", "text": "Email type:"},
                     "element": {
-                    "type": "static_select",
-                    "action_id": "choice_select",
-                    "placeholder": { "type": "plain_text", "text": "Pick one…" },
-                    "options": [
-                        {
-                         "text": {
-                            "type": "plain_text",
-                            "text": ":white_check_mark: - Acceptance  "
+                        "type": "static_select",
+                        "action_id": "choice_select",
+                        "placeholder": {"type": "plain_text", "text": "Pick one…"},
+                        "options": [
+                            {
+                                "text": {"type": "plain_text", "text": ":white_check_mark: - Acceptance  "},
+                                "value": "acceptance",
                             },
-                         "value": "acceptance"
-                        },
-                        {
-                         "text": {
-                            "type": "plain_text",
-                            "text": ":leftwards_arrow_with_hook: - Return visit"
+                            {
+                                "text": {"type": "plain_text", "text": ":leftwards_arrow_with_hook: - Return visit"},
+                                "value": "return_visit",
                             },
-                         "value": "return_visit" },
-                        { "text": {
-                            "type": "plain_text", "text": ":no_entry_sign: - Rejection"
+                            {
+                                "text": {"type": "plain_text", "text": ":no_entry_sign: - Rejection"},
+                                "value": "rejection",
                             },
-                         "value": "rejection"
-                        }
-                    ]
-                    }
+                        ],
+                    },
                 },
                 {
                     "type": "input",
                     "optional": True,
                     "block_id": "bcc_block",
-                    "label": { "type": "plain_text", "text": "BCC" },
+                    "label": {"type": "plain_text", "text": "BCC"},
                     "element": {
                         "type": "checkboxes",
                         "action_id": "bcc_self",
                         "options": [
-                            {
-                                "text": { "type": "plain_text", "text": "BCC membership@kwartzlab.ca" },
-                                "value": "bcc_self"
-                            }
+                            {"text": {"type": "plain_text", "text": "BCC membership@kwartzlab.ca"}, "value": "bcc_self"}
                         ],
                         "initial_options": [
-                            {
-                                "text": { "type": "plain_text", "text": "BCC membership@kwartzlab.ca" },
-                                "value": "bcc_self"
-                            }
-                        ]
-                    }
+                            {"text": {"type": "plain_text", "text": "BCC membership@kwartzlab.ca"}, "value": "bcc_self"}
+                        ],
+                    },
                 },
                 {
                     "type": "actions",
                     "elements": [
-                    {
-                        "type": "button",
-                        "text": { "type": "plain_text", "text": "Confirm" },
-                        "style": "primary",
-                        "action_id": "confirm_submit",
-                        "value": "confirm"
-                    },
-                    {
-                        "type": "button",
-                        "text": { "type": "plain_text", "text": "Cancel" },
-                        "style": "danger",
-                        "action_id": "email_cancel",
-                        "value": "cancel"
-                    }
-                    ]
-                }
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "Confirm"},
+                            "style": "primary",
+                            "action_id": "confirm_submit",
+                            "value": "confirm",
+                        },
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "Cancel"},
+                            "style": "danger",
+                            "action_id": "email_cancel",
+                            "value": "cancel",
+                        },
+                    ],
+                },
             ],
             thread_ts=thread_ts,
         )
 
         logger.debug("Shortcut response sent for user %s: %s", user, resp)
+
 
 def register_archive_shortcut_handler(app, cfg, runtime):
     @app.shortcut("archive_thread")
@@ -387,8 +378,8 @@ def register_archive_shortcut_handler(app, cfg, runtime):
             thread_ts=thread_ts,
         )
 
-def register_email_actions(app, cfg, runtime):
 
+def register_email_actions(app, cfg, runtime):
     @app.action("confirm_submit")
     async def handle_send_email(ack, body, logger, respond):
         await ack()
@@ -412,7 +403,6 @@ def register_email_actions(app, cfg, runtime):
 
             gmail_service = runtime.mailer
 
-
             email_sent = False
             if choice == "acceptance":
                 message = mailer.build_acceptance_email(
@@ -434,11 +424,7 @@ def register_email_actions(app, cfg, runtime):
 
             try:
                 logger.info("Sending email to user %s", user["email"])
-                mailer.send_message(
-                    service=gmail_service,
-                    user_id=mailer.SENDER_USER_ID,
-                    message=message
-                )
+                mailer.send_message(service=gmail_service, user_id=mailer.SENDER_USER_ID, message=message)
                 email_sent = True
             except Exception:
                 logger.exception("Failed to send email via Gmail API to %s.", user.get("email"))
@@ -509,11 +495,7 @@ def register_email_actions(app, cfg, runtime):
         except Exception:
             pass
 
-        await respond(
-            replace_original=True,
-            text="Cancelled.",
-            blocks=[]
-        )
+        await respond(replace_original=True, text="Cancelled.", blocks=[])
 
     @app.action("choice_select")
     async def handle_some_action(ack, body, logger):
@@ -532,11 +514,8 @@ def register_email_actions(app, cfg, runtime):
         except Exception:
             pass
 
-        await respond(
-            replace_original=True,
-            text="Cancelled.",
-            blocks=[]
-        )
+        await respond(replace_original=True, text="Cancelled.", blocks=[])
+
 
 def register_modal_handler(app, cfg, runtime):
     @app.action("view_application_questions")
@@ -588,9 +567,7 @@ def register_modal_handler(app, cfg, runtime):
                         "blocks": [
                             {
                                 "type": "section",
-                                "text": {
-                                    "type": "mrkdwn", "text": "Something went wrong opening the modal."
-                                }
+                                "text": {"type": "mrkdwn", "text": "Something went wrong opening the modal."},
                             }
                         ],
                     },

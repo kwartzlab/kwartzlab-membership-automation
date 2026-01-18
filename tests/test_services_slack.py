@@ -34,9 +34,7 @@ def test_insert_slack_event_resolves_thread_and_applicant(slack_db_engine):
         slack_service.insert_slack_event(conn, reaction_event)
 
         row = conn.execute(
-            text(
-                "SELECT thread_ts, applicant_user_id FROM slack_thread_events WHERE event = 'react_add' LIMIT 1"
-            )
+            text("SELECT thread_ts, applicant_user_id FROM slack_thread_events WHERE event = 'react_add' LIMIT 1")
         ).fetchone()
 
         assert row[0] == "111.222"
@@ -53,11 +51,7 @@ def test_build_questions_modal_view_excludes_pii():
     }
 
     modal = slack_service.build_questions_modal_view(application_data)
-    blocks_text = [
-        block.get("text", {}).get("text", "")
-        for block in modal["blocks"]
-        if block.get("type") == "section"
-    ]
+    blocks_text = [block.get("text", {}).get("text", "") for block in modal["blocks"] if block.get("type") == "section"]
 
     combined = "\n".join(blocks_text)
     assert "Email:" in combined

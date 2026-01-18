@@ -34,12 +34,12 @@ DEFAULT_PHOTO_LABEL = "Photo"
 
 def insert_slack_event(conn: Connection, event_data: dict):
     # Resolve thread_ts for reactions if needed
-    if event_data.get('thread_ts') is None and event_data.get('parent_message'):
-        event_data['thread_ts'] = get_thread_ts(conn, event_data['parent_message'])
+    if event_data.get("thread_ts") is None and event_data.get("parent_message"):
+        event_data["thread_ts"] = get_thread_ts(conn, event_data["parent_message"])
 
     # Set applicant_user_id if not set and thread_ts exists
-    if event_data.get('applicant_user_id') is None and event_data.get('thread_ts'):
-        event_data['applicant_user_id'] = get_applicant_user_id_by_thread_ts(conn, event_data['thread_ts'])
+    if event_data.get("applicant_user_id") is None and event_data.get("thread_ts"):
+        event_data["applicant_user_id"] = get_applicant_user_id_by_thread_ts(conn, event_data["thread_ts"])
 
     conn.execute(INSERT_SLACK_EVENT_SQL, event_data)
 
@@ -50,10 +50,7 @@ def save_slack_modal_response(conn: Connection, applicant_user_id: str, thread_t
         "thread_ts": thread_ts,
         "slack_modal_blocks": slack_modal_blocks,
     }
-    conn.execute(
-        INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL,
-        insert_data
-    )
+    conn.execute(INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL, insert_data)
 
 
 def _fmt(v: Any) -> str:
@@ -183,8 +180,8 @@ def build_questions_modal_view(
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"*Applicant:* {first} {last}\n*Email:* {_fmt(pii.get('Email Address'))}"
-                },
+                "text": f"*Applicant:* {first} {last}\n*Email:* {_fmt(pii.get('Email Address'))}",
+            },
         },
         {"type": "divider"},
     ]
@@ -195,9 +192,7 @@ def build_questions_modal_view(
             blocks.append(
                 {
                     "type": "context",
-                    "elements": [
-                        {"type": "mrkdwn", "text": "Click to view more."}
-                    ],
+                    "elements": [{"type": "mrkdwn", "text": "Click to view more."}],
                 }
             )
             break
@@ -260,6 +255,7 @@ def post_application(cfg: config.Config, application_data) -> None:
 
     return response
 
+
 def add_default_reacts(cfg: config.Config, channel: str, timestamp: str) -> None:
     from slack_web import add_reaction
 
@@ -270,15 +266,17 @@ def add_default_reacts(cfg: config.Config, channel: str, timestamp: str) -> None
         except Exception as e:
             logger.error("Failed to add reaction %s in channel %s at %s: %s", reaction, channel, timestamp, e)
 
+
 def add_default_message(cfg: config.Config, channel: str, timestamp: str) -> None:
     from slack_web import post_message_reply
 
-    default_message = ("If you know or have met this applicant, please leave some feedback.\n"
-    "If you endorse their membership, react above with a :++1:.\n"
-    "An applicant requires five +1's to become a member.\n\n"
-    "If for any reason you believe they should not be accepted, react above with a :--1:.\n"
-    "If you're uncomfortable posting your reason in thread,"
-    "please contact the membership coordinator directly to discuss."
+    default_message = (
+        "If you know or have met this applicant, please leave some feedback.\n"
+        "If you endorse their membership, react above with a :++1:.\n"
+        "An applicant requires five +1's to become a member.\n\n"
+        "If for any reason you believe they should not be accepted, react above with a :--1:.\n"
+        "If you're uncomfortable posting your reason in thread,"
+        "please contact the membership coordinator directly to discuss."
     )
     try:
         post_message_reply(

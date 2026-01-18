@@ -6,10 +6,12 @@ from sqlalchemy.engine import Engine
 
 logger = logging.getLogger(__name__)
 
+
 def create_slack_db_engine(db_path: str) -> Engine:
     db_url = f"sqlite:///{db_path}"
     engine = create_engine(db_url, future=True)
     return engine
+
 
 # SQL for SQLite
 
@@ -97,6 +99,7 @@ GET_THREAD_EVENTS_SQL = text("""
     WHERE thread_ts = :thread_ts
     ORDER BY created_at ASC
 """)
+
 
 def create_slack_tables(conn):
     conn.execute(CREATE_SLACK_THREAD_EVENTS_TABLE_SQL)

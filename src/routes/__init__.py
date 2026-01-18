@@ -14,8 +14,8 @@ from worker import poller_loop
 
 logger = logging.getLogger(__name__)
 
-def make_app(services: Services):
 
+def make_app(services: Services):
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         logger.info("Starting application lifespan...")
@@ -24,18 +24,19 @@ def make_app(services: Services):
         with services.slack_db_engine.begin() as conn:
             await asyncio.to_thread(db.create_slack_tables, conn)
 
-        tasks.append(asyncio.create_task(poller_loop(
-            cfg=services.config,
-            kos_api_client=services.kos_api_client,
-            slack_engine=services.slack_db_engine
-            ))
+        tasks.append(
+            asyncio.create_task(
+                poller_loop(
+                    cfg=services.config, kos_api_client=services.kos_api_client, slack_engine=services.slack_db_engine
+                )
+            )
         )
 
         slack_runtime = build_slack_runtime(
             cfg=services.config,
             kos_api_client=services.kos_api_client,
             slack_db_engine=services.slack_db_engine,
-            mailer=services.gmail_service
+            mailer=services.gmail_service,
         )
         tasks.extend(slack_runtime.start_tasks())
 
@@ -57,7 +58,6 @@ def make_app(services: Services):
     app = FastAPI(lifespan=lifespan)
 
     app.state.services = services
-
 
     app.include_router(health_router)
     app.include_router(outbox_router)

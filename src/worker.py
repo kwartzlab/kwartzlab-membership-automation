@@ -5,6 +5,7 @@ import services.interviews as interviews
 
 logger = logging.getLogger(__name__)
 
+
 async def poller_loop(cfg, kos_api_client, slack_engine):
     while True:
         try:

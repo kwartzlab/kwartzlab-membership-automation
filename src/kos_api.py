@@ -11,9 +11,11 @@ class KosApiClient:
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"Bearer {token}",
-        })
+        self.session.headers.update(
+            {
+                "Authorization": f"Bearer {token}",
+            }
+        )
 
     def get_user(self, user_id: int) -> Optional[dict]:
         return self._get_json(f"/api/users/{user_id}")
@@ -63,12 +65,7 @@ class KosApiClient:
         return response.json()
 
     def _request(
-        self,
-        method: str,
-        path: str,
-        *,
-        allow_statuses: Optional[set[int]] = None,
-        **kwargs
+        self, method: str, path: str, *, allow_statuses: Optional[set[int]] = None, **kwargs
     ) -> requests.Response:
         url = f"{self.base_url}{path}"
         response = self.session.request(method, url, timeout=self.timeout_seconds, **kwargs)

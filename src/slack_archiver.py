@@ -5,6 +5,7 @@ from services.slack import insert_slack_event
 
 logger = logging.getLogger(__name__)
 
+
 async def consume_queue(queue: asyncio.Queue, slack_db_engine):
     while True:
         item = await queue.get()

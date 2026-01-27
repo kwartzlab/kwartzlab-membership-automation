@@ -1,0 +1,176 @@
+import asyncio
+import json
+import logging
+
+import db
+import services.mailer as mailer
+from services.slack.slack_web import post_message_reply, send_ephemeral_message
+
+logger = logging.getLogger(__name__)
+
+EMAIL_REACTION_CHOICES = {
+    "white_check_mark": "acceptance",
+    "leftwards_arrow_with_hook": "return_visit",
+    "leftward_arrow_with_hook": "return_visit",
+    "no_entry_sign": "rejection",
+}
+
+EMAIL_PUBLIC_MESSAGES = {
+    "acceptance": "This application has been approved!",
+    "return_visit": "Does anyone have any more feedback for this applicant? They have been asked to return.",
+    "rejection": "This application has been rejected.",
+}
+
+EMAIL_EPHEMERAL_LABELS = {
+    "acceptance": "Acceptance",
+    "return_visit": "Return",
+    "rejection": "Rejection",
+}
+
+
+async def _send_applicant_email(
+    *,
+    cfg,
+    runtime,
+    choice: str,
+    applicant_user_id: str,
+    channel_id: str,
+    thread_ts: str,
+    actor_user_id: str,
+    bcc_email: str | None = None,
+) -> bool:
+    user = await asyncio.to_thread(runtime.kos_api_client.get_user, int(applicant_user_id))
+    if not user:
+        logger.warning("No application found for applicant user ID %s.", applicant_user_id)
+        return False
+
+    if choice == "acceptance":
+        message = mailer.build_acceptance_email(user, bcc=bcc_email)
+    elif choice == "return_visit":
+        message = mailer.build_return_visit_email(user, bcc=bcc_email)
+    elif choice == "rejection":
+        message = mailer.build_rejection_email(user, bcc=bcc_email)
+    else:
+        logger.warning("Invalid email choice: %s.", choice)
+        return False
+
+    try:
+        logger.info("Sending email to user %s", user["email"])
+        mailer.send_message(
+            service=runtime.mailer,
+            user_id=mailer.SENDER_USER_ID,
+            message=message,
+        )
+    except Exception:
+        logger.exception("Failed to send email via Gmail API to %s.", user.get("email"))
+        return False
+
+    with runtime.slack_db_engine.begin() as conn:
+        db.insert_audit_event(
+            conn,
+            action="email_sent",
+            actor_user_id=actor_user_id,
+            applicant_user_id=str(applicant_user_id),
+            thread_ts=thread_ts,
+            metadata={
+                "email_type": choice,
+                "recipient_email": user.get("email"),
+                "channel_id": channel_id,
+            },
+        )
+
+    send_ephemeral_message(
+        cfg=cfg,
+        channel=channel_id,
+        user=actor_user_id,
+        text=f"{EMAIL_EPHEMERAL_LABELS[choice]} email sent.",
+        thread_ts=thread_ts,
+    )
+
+    post_message_reply(
+        cfg=cfg,
+        channel=channel_id,
+        thread_ts=thread_ts,
+        text=EMAIL_PUBLIC_MESSAGES[choice],
+        reply_broadcast=(choice == "return_visit"),
+    )
+    return True
+
+
+async def _handle_reaction_email(event, cfg, runtime):
+    reaction = event.get("reaction")
+    choice = EMAIL_REACTION_CHOICES.get(reaction)
+    if not choice:
+        return
+
+    user_id = event.get("user")
+    if user_id not in runtime.cache_manager.authorized_users:
+        logger.warning("Unauthorized user %s tried to send reaction email.", user_id)
+        return
+
+    channel_id = event.get("item", {}).get("channel")
+    item_ts = event.get("item", {}).get("ts")
+    if not channel_id or not item_ts:
+        logger.warning("Reaction event missing channel or ts: %s", event)
+        return
+
+    try:
+        with runtime.slack_db_engine.connect() as conn:
+            thread_ts = db.get_thread_ts(conn, item_ts) or item_ts
+            applicant_user_id = db.get_applicant_user_id_by_thread_ts(conn, thread_ts)
+            existing = db.has_email_sent(conn, thread_ts, choice)
+        if not applicant_user_id:
+            logger.warning("No applicant user ID found for reaction email in thread %s.", thread_ts)
+            return
+        if existing:
+            logger.info("Email already sent for thread %s and choice %s; skipping.", thread_ts, choice)
+            return
+
+        await _send_applicant_email(
+            cfg=cfg,
+            runtime=runtime,
+            choice=choice,
+            applicant_user_id=applicant_user_id,
+            channel_id=channel_id,
+            thread_ts=thread_ts,
+            actor_user_id=user_id,
+        )
+    except Exception:
+        logger.exception("Failed to process reaction email.")
+
+
+def register_reaction_handlers(app, cfg, runtime, queue):
+    @app.event("reaction_added")
+    async def on_reaction_added(event, body):
+        if event.get("item", {}).get("channel") != cfg.slack_channel_id:
+            return
+        event_data = {
+            "thread_ts": None,
+            "user_id": event.get("user"),
+            "user_name": runtime.cache_manager.users_cache.get(event.get("user"), event.get("user")),
+            "event": "react_add",
+            "message": event.get("reaction"),
+            "parent_message": event["item"]["ts"],
+            "raw_response": json.dumps(body),
+            "timestamp": event.get("event_ts"),
+            "applicant_user_id": None,
+        }
+        await queue.put(event_data)
+        await _handle_reaction_email(event, cfg, runtime)
+
+    @app.event("reaction_removed")
+    async def on_reaction_removed(event, body):
+        if event.get("item", {}).get("channel") != cfg.slack_channel_id:
+            return
+        event_data = {
+            "thread_ts": None,
+            "user_id": event.get("user"),
+            "user_name": runtime.cache_manager.users_cache.get(event.get("user"), event.get("user")),
+            "event": "react_remove",
+            "message": event.get("reaction"),
+            "parent_message": event["item"]["ts"],
+            "raw_response": json.dumps(body),
+            "timestamp": event.get("event_ts"),
+            "applicant_user_id": None,
+        }
+        await queue.put(event_data)

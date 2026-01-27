@@ -45,7 +45,7 @@ RETURN_EMAIL = Email(
         """
 )
 
-ACCEPTENCE_EMAIL: str = Email(
+ACCEPTANCE_EMAIL: str = Email(
     subject="Kwartzlab Welcome Email",
     body="""
             <p>Hey {name}!</p> 

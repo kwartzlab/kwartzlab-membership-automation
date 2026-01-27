@@ -3,7 +3,7 @@ import logging
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-import config
+from core import config
 
 logger = logging.getLogger(__name__)
 

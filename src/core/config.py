@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 
-def getenv(name: str, default: Optional[str] = None, *, required: bool = False) -> str:
+def getenv(name: str, default: Optional[str] = None, *, required: bool = False) -> str | None:
     value = os.getenv(name, default)
     if required and value is None:
         raise RuntimeError(f"Missing required environment variable: {name}")
@@ -26,7 +26,7 @@ class Config:
     slack_app_token: str
     slack_channel_id: str
 
-    authorized_usergroups: list
+    authorized_usergroups: list[str]
 
     # Email
     credentials_file: str
@@ -34,13 +34,15 @@ class Config:
 
     # Worker behavior
     poll_interval_seconds: int
-    batch_size: int
 
     # Environment
     environment: str
     debug: bool
 
     port: int
+
+    # API auth
+    api_token: str
 
     # Paths
     project_root: str
@@ -63,7 +65,6 @@ def load_config() -> Config:
         # Default to BoD slack usergroup
         authorized_usergroups=getenv("AUTHORIZED_USERGROUPS", "SDFB4PKGE").split(" "),
         poll_interval_seconds=int(getenv("POLL_INTERVAL_SECONDS", "30")),
-        batch_size=int(getenv("BATCH_SIZE", "1")),
         # kOS API
         kos_api_base_url=getenv("KOS_API_BASE_URL", required=True),
         kos_api_token=getenv("KOS_API_TOKEN", required=True),
@@ -77,6 +78,8 @@ def load_config() -> Config:
         # Meta
         environment=env,
         debug=getenv("DEBUG", "false").lower() == "true",
+        # API auth
+        api_token=getenv("API_TOKEN", required=True),
         # Paths
         project_root=str(project_root),
         archive_gdrive_url=getenv("ARCHIVE_GDRIVE_URL"),

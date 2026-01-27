@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from services.slack import insert_slack_event
+from services.slack.slack import insert_slack_event
 
 logger = logging.getLogger(__name__)
 

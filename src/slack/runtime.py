@@ -8,8 +8,8 @@ from slack_bolt.async_app import AsyncApp
 from sqlalchemy.engine import Engine
 
 import services.kos_api as kos_api
-import slack_archiver
-import slack_handlers
+from slack import archiver as slack_archiver
+from slack import slack_handlers
 from core.config import Config
 from services.slack.slack_web import get_user_group, get_users
 

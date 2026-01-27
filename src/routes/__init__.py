@@ -10,8 +10,8 @@ from routes.health import router as health_router
 from routes.outbox import router as outbox_router
 from services import Services
 from services.auth import verify_api_token
-from slack_app import build_slack_runtime
-from worker import poller_loop
+from slack.runtime import build_slack_runtime
+from jobs.poller import poller_loop
 
 logger = logging.getLogger(__name__)
 

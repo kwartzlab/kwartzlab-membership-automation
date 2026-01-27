@@ -29,6 +29,74 @@ EMAIL_EPHEMERAL_LABELS = {
     "rejection": "Rejection",
 }
 
+async def _send_applicant_email(
+    *,
+    cfg,
+    runtime,
+    choice: str,
+    applicant_user_id: str,
+    channel_id: str,
+    thread_ts: str,
+    actor_user_id: str,
+    bcc_email: str | None = None,
+) -> bool:
+    user = await asyncio.to_thread(runtime.kos_api_client.get_user, int(applicant_user_id))
+    if not user:
+        logger.warning("No application found for applicant user ID %s.", applicant_user_id)
+        return False
+
+    if choice == "acceptance":
+        message = mailer.build_acceptance_email(user, bcc=bcc_email)
+    elif choice == "return_visit":
+        message = mailer.build_return_visit_email(user, bcc=bcc_email)
+    elif choice == "rejection":
+        message = mailer.build_rejection_email(user, bcc=bcc_email)
+    else:
+        logger.warning("Invalid email choice: %s.", choice)
+        return False
+
+    try:
+        logger.info("Sending email to user %s", user["email"])
+        mailer.send_message(
+            service=runtime.mailer,
+            user_id=mailer.SENDER_USER_ID,
+            message=message,
+        )
+    except Exception:
+        logger.exception("Failed to send email via Gmail API to %s.", user.get("email"))
+        return False
+
+    with runtime.slack_db_engine.begin() as conn:
+        db.insert_audit_event(
+            conn,
+            action="email_sent",
+            actor_user_id=actor_user_id,
+            applicant_user_id=str(applicant_user_id),
+            thread_ts=thread_ts,
+            metadata={
+                "email_type": choice,
+                "recipient_email": user.get("email"),
+                "channel_id": channel_id,
+            },
+        )
+
+    send_ephemeral_message(
+        cfg=cfg,
+        channel=channel_id,
+        user=actor_user_id,
+        text=f"{EMAIL_EPHEMERAL_LABELS[choice]} email sent.",
+        thread_ts=thread_ts,
+    )
+
+    post_message_reply(
+        cfg=cfg,
+        channel=channel_id,
+        thread_ts=thread_ts,
+        text=EMAIL_PUBLIC_MESSAGES[choice],
+        reply_broadcast=(choice == "return_visit"),
+    )
+    return True
+
 
 async def _handle_reaction_email(event, cfg, runtime):
     reaction = event.get("reaction")
@@ -51,64 +119,22 @@ async def _handle_reaction_email(event, cfg, runtime):
         with runtime.slack_db_engine.connect() as conn:
             thread_ts = db.get_thread_ts(conn, item_ts) or item_ts
             applicant_user_id = db.get_applicant_user_id_by_thread_ts(conn, thread_ts)
+            existing = db.has_email_sent(conn, thread_ts, choice)
         if not applicant_user_id:
             logger.warning("No applicant user ID found for reaction email in thread %s.", thread_ts)
             return
-
-        user = await asyncio.to_thread(runtime.kos_api_client.get_user, int(applicant_user_id))
-        if not user:
-            logger.warning("No application found for applicant user ID %s.", applicant_user_id)
+        if existing:
+            logger.info("Email already sent for thread %s and choice %s; skipping.", thread_ts, choice)
             return
 
-        gmail_service = runtime.mailer
-        if choice == "acceptance":
-            message = mailer.build_acceptance_email(user)
-        elif choice == "return_visit":
-            message = mailer.build_return_visit_email(user)
-        elif choice == "rejection":
-            message = mailer.build_rejection_email(user)
-        else:
-            return
-
-        try:
-            logger.info("Sending reaction email to user %s", user["email"])
-            mailer.send_message(
-                service=gmail_service,
-                user_id=mailer.SENDER_USER_ID,
-                message=message,
-            )
-        except Exception:
-            logger.exception("Failed to send reaction email via Gmail API to %s.", user.get("email"))
-            return
-
-        with runtime.slack_db_engine.begin() as conn:
-            db.insert_audit_event(
-                conn,
-                action="email_sent",
-                actor_user_id=user_id,
-                applicant_user_id=str(applicant_user_id),
-                thread_ts=thread_ts,
-                metadata={
-                    "email_type": choice,
-                    "recipient_email": user.get("email"),
-                    "channel_id": channel_id,
-                },
-            )
-
-        send_ephemeral_message(
+        await _send_applicant_email(
             cfg=cfg,
-            channel=channel_id,
-            user=user_id,
-            text=f"{EMAIL_EPHEMERAL_LABELS[choice]} email sent.",
+            runtime=runtime,
+            choice=choice,
+            applicant_user_id=applicant_user_id,
+            channel_id=channel_id,
             thread_ts=thread_ts,
-        )
-
-        post_message_reply(
-            cfg=cfg,
-            channel=channel_id,
-            thread_ts=thread_ts,
-            text=EMAIL_PUBLIC_MESSAGES[choice],
-            reply_broadcast=(choice == "return_visit"),
+            actor_user_id=user_id,
         )
     except Exception:
         logger.exception("Failed to process reaction email.")
@@ -231,6 +257,7 @@ def register_email_shortcut_handler(app, cfg, runtime):
 
         if user not in runtime.cache_manager.authorized_users:
             send_ephemeral_message(
+                cfg=cfg,
                 channel=channel,
                 user=user,
                 text="You’re not allowed to do this.",
@@ -397,90 +424,26 @@ def register_email_actions(app, cfg, runtime):
             if not applicant_user_id:
                 raise ValueError("No applicant user ID found for this message.")
 
-            user = await asyncio.to_thread(runtime.kos_api_client.get_user, int(applicant_user_id))
-            if not user:
-                raise ValueError("No application found for applicant user ID.")
+            channel_id = body.get("channel", {}).get("id")
+            thread_ts = body.get("container", {}).get("thread_ts")
+            user_id = body.get("user", {}).get("id")
+            if not channel_id or not thread_ts or not user_id:
+                raise ValueError("Missing channel_id, thread_ts, or user_id.")
 
-            gmail_service = runtime.mailer
-
-            email_sent = False
-            if choice == "acceptance":
-                message = mailer.build_acceptance_email(
-                    user,
-                    bcc=bcc_email,
-                )
-            elif choice == "return_visit":
-                message = mailer.build_return_visit_email(
-                    user,
-                    bcc=bcc_email,
-                )
-            elif choice == "rejection":
-                message = mailer.build_rejection_email(
-                    user,
-                    bcc=bcc_email,
-                )
-            else:
-                raise ValueError("Invalid email choice.")
-
-            try:
-                logger.info("Sending email to user %s", user["email"])
-                mailer.send_message(service=gmail_service, user_id=mailer.SENDER_USER_ID, message=message)
-                email_sent = True
-            except Exception:
-                logger.exception("Failed to send email via Gmail API to %s.", user.get("email"))
-                email_sent = False
+            email_sent = await _send_applicant_email(
+                cfg=cfg,
+                runtime=runtime,
+                choice=choice,
+                applicant_user_id=str(applicant_user_id),
+                channel_id=channel_id,
+                thread_ts=thread_ts,
+                actor_user_id=user_id,
+                bcc_email=bcc_email,
+            )
 
         except Exception as e:
             logger.exception("Failed to send email.")
             raise e
-
-        if email_sent:
-            channel_id = body.get("channel", {}).get("id")
-            thread_ts = body.get("container", {}).get("thread_ts")
-            user_id = body.get("user", {}).get("id")
-            applicant_user_id = str(applicant_user_id)
-
-            public_messages = {
-                "acceptance": EMAIL_PUBLIC_MESSAGES["acceptance"],
-                "return_visit": EMAIL_PUBLIC_MESSAGES["return_visit"],
-                "rejection": EMAIL_PUBLIC_MESSAGES["rejection"],
-            }
-            ephemeral_labels = {
-                "acceptance": EMAIL_EPHEMERAL_LABELS["acceptance"],
-                "return_visit": EMAIL_EPHEMERAL_LABELS["return_visit"],
-                "rejection": EMAIL_EPHEMERAL_LABELS["rejection"],
-            }
-
-            if channel_id and thread_ts and user_id:
-                with runtime.slack_db_engine.begin() as conn:
-                    db.insert_audit_event(
-                        conn,
-                        action="email_sent",
-                        actor_user_id=user_id,
-                        applicant_user_id=applicant_user_id,
-                        thread_ts=thread_ts,
-                        metadata={
-                            "email_type": choice,
-                            "recipient_email": user.get("email"),
-                            "channel_id": channel_id,
-                        },
-                    )
-
-                send_ephemeral_message(
-                    cfg=cfg,
-                    channel=channel_id,
-                    user=user_id,
-                    text=f"{ephemeral_labels[choice]} email sent.",
-                    thread_ts=thread_ts,
-                )
-
-                post_message_reply(
-                    cfg=cfg,
-                    channel=channel_id,
-                    thread_ts=thread_ts,
-                    text=public_messages[choice],
-                    reply_broadcast=(choice == "return_visit"),
-                )
 
         # post_message_reply(
         #         cfg=cfg,
@@ -492,8 +455,8 @@ def register_email_actions(app, cfg, runtime):
         try:
             await respond(delete_original=True)
             return
-        except Exception:
-            pass
+        except Exception as e:
+            await respond(replace_original=True, text=f"Error processing: {e}", blocks=[])
 
         await respond(replace_original=True, text="Cancelled.", blocks=[])
 

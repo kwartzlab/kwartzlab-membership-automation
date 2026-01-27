@@ -100,6 +100,15 @@ GET_THREAD_EVENTS_SQL = text("""
     ORDER BY created_at ASC
 """)
 
+HAS_EMAIL_SENT_SQL = text("""
+    SELECT 1
+    FROM audit_log
+    WHERE action = 'email_sent'
+      AND thread_ts = :thread_ts
+      AND metadata LIKE :email_type
+    LIMIT 1
+""")
+
 
 def create_slack_tables(conn):
     conn.execute(CREATE_SLACK_THREAD_EVENTS_TABLE_SQL)
@@ -152,3 +161,11 @@ def get_thread_events(conn, thread_ts: str) -> list[dict]:
         {"thread_ts": thread_ts},
     ).fetchall()
     return [dict(row._mapping) for row in rows]
+
+
+def has_email_sent(conn, thread_ts: str, email_type: str) -> bool:
+    result = conn.execute(
+        HAS_EMAIL_SENT_SQL,
+        {"thread_ts": thread_ts, "email_type": f'%\"email_type\": \"{email_type}\"%'},
+    ).fetchone()
+    return result is not None

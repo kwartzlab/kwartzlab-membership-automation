@@ -1,4 +1,5 @@
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
@@ -15,8 +16,10 @@ def get_services(request: Request) -> Services:
 
 
 @router.post("/process-form-outbox/{outbox_id}")
-def process_outbox(outbox_id: int, request: Request, services: Services):
-    services: Services = Depends(get_services)
+def process_outbox(
+    outbox_id: int,
+    services: Annotated[Services, Depends(get_services)],
+):
     kos_api_client = services.kos_api_client
     cfg = services.config
     slack_engine = services.slack_db_engine

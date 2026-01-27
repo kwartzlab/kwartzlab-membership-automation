@@ -2,7 +2,7 @@ import json
 
 from sqlalchemy import text
 
-from services import slack as slack_service
+from services.slack import slack as slack_service
 
 
 def test_insert_slack_event_resolves_thread_and_applicant(slack_db_engine):

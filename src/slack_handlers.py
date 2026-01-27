@@ -4,8 +4,8 @@ import logging
 
 import db
 import drive_archive
-import mailer
-from slack_web import post_message_reply, send_ephemeral_message
+import services.mailer as mailer
+from services.slack.slack_web import post_message_reply, send_ephemeral_message
 from thread_archive import archive_thread_events
 
 logger = logging.getLogger(__name__)

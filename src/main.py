@@ -4,9 +4,9 @@ import uvicorn
 
 import config
 import db
-import kos_api
+import services.kos_api as kos_api
 from logging_setup import configure_logging
-from mailer import get_gmail_service
+from services.mailer import get_gmail_service
 from routes import make_app
 from services import Services
 

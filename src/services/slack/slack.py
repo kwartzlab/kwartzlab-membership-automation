@@ -5,12 +5,12 @@ from sqlalchemy import Connection
 
 import config
 from db import (
-    INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL,
-    INSERT_SLACK_EVENT_SQL,
     get_applicant_user_id_by_thread_ts,
     get_thread_ts,
+    insert_interview_answers_slack_modal_row,
+    insert_slack_event_row,
 )
-from slack_web import post_message_reply
+from services.slack.slack_web import post_message_reply
 
 logger = logging.getLogger(__name__)
 
@@ -41,16 +41,16 @@ def insert_slack_event(conn: Connection, event_data: dict):
     if event_data.get("applicant_user_id") is None and event_data.get("thread_ts"):
         event_data["applicant_user_id"] = get_applicant_user_id_by_thread_ts(conn, event_data["thread_ts"])
 
-    conn.execute(INSERT_SLACK_EVENT_SQL, event_data)
+    insert_slack_event_row(conn, event_data)
 
 
 def save_slack_modal_response(conn: Connection, applicant_user_id: str, thread_ts: str, slack_modal_blocks: str):
-    insert_data = {
-        "applicant_user_id": applicant_user_id,
-        "thread_ts": thread_ts,
-        "slack_modal_blocks": slack_modal_blocks,
-    }
-    conn.execute(INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL, insert_data)
+    insert_interview_answers_slack_modal_row(
+        conn,
+        applicant_user_id=applicant_user_id,
+        thread_ts=thread_ts,
+        slack_modal_blocks=slack_modal_blocks,
+    )
 
 
 def _fmt(v: Any) -> str:
@@ -257,7 +257,7 @@ def post_application(cfg: config.Config, application_data) -> None:
 
 
 def add_default_reacts(cfg: config.Config, channel: str, timestamp: str) -> None:
-    from slack_web import add_reaction
+    from services.slack.slack_web import add_reaction
 
     default_reactions = ["++1", "--1"]
     for reaction in default_reactions:
@@ -268,7 +268,7 @@ def add_default_reacts(cfg: config.Config, channel: str, timestamp: str) -> None
 
 
 def add_default_message(cfg: config.Config, channel: str, timestamp: str) -> None:
-    from slack_web import post_message_reply
+    from services.slack.slack_web import post_message_reply
 
     default_message = (
         "If you know or have met this applicant, please leave some feedback.\n"

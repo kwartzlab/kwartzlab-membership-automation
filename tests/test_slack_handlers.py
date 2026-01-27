@@ -3,7 +3,7 @@ import logging
 import pytest
 
 import db
-import mailer
+import services.mailer as mailer
 import slack_handlers
 
 

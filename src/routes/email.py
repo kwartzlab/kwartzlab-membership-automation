@@ -1,17 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 
-import mailer
-from services import Services
+import services.mailer as mailer
+from services import Services, get_services
 
 router = APIRouter()
-
-
-def get_services(request: Request) -> Services:
-    return request.app.state.services
-
-
 @router.post("/email/{user_id}/return_visit")
 def send_return_visit_email(
     user_id: int,

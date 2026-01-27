@@ -1,4 +1,6 @@
 import logging
+import json
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 import requests
@@ -77,6 +79,24 @@ class KosApiClient:
             response.raise_for_status()
         except requests.HTTPError as exc:
             logger.error("KOS API request failed: %s %s -> %s", method.upper(), url, response.status_code)
-            raise exc
+            raise
 
         return response
+
+
+def mark_outbox_on_error(
+    kos_api_client: KosApiClient,
+    outbox_id: int,
+    exc: Exception,
+    *,
+    log: logging.Logger | None = None,
+    max_error_len: int = 1000,
+) -> None:
+    """Log and mark an outbox item with a truncated error message."""
+    (log or logger).exception("Failed to process outbox_id %s.", outbox_id)
+    error_text = str(exc)[:max_error_len]
+    payload = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "error": error_text,
+    }
+    kos_api_client.mark_outbox(outbox_id, last_error=json.dumps(payload, ensure_ascii=True))

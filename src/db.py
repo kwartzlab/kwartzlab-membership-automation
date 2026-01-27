@@ -1,8 +1,22 @@
 import json
 import logging
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
+
+from templates.sql import (
+    CREATE_AUDIT_LOG_TABLE_SQL,
+    CREATE_INTERVIEW_ANSWERS_SLACK_MODAL_TABLE_SQL,
+    CREATE_SLACK_THREAD_EVENTS_TABLE_SQL,
+    GET_APPLICANT_USER_ID_BY_THREAD_TS_SQL,
+    GET_MODAL_BLOCKS_PAYLOAD_SQL,
+    GET_THREAD_EVENTS_SQL,
+    GET_THREAD_TS_SQL,
+    HAS_EMAIL_SENT_SQL,
+    INSERT_AUDIT_LOG_SQL,
+    INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL,
+    INSERT_SLACK_EVENT_SQL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -11,103 +25,6 @@ def create_slack_db_engine(db_path: str) -> Engine:
     db_url = f"sqlite:///{db_path}"
     engine = create_engine(db_url, future=True)
     return engine
-
-
-# SQL for SQLite
-
-CREATE_SLACK_THREAD_EVENTS_TABLE_SQL = text("""
-    CREATE TABLE IF NOT EXISTS slack_thread_events (
-        thread_ts TEXT,
-        user_id TEXT,
-        user_name TEXT,
-        event TEXT,
-        message TEXT,
-        parent_message TEXT,
-        raw_response TEXT,
-        timestamp TEXT PRIMARY KEY,
-        applicant_user_id TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-""")
-
-CREATE_INTERVIEW_ANSWERS_SLACK_MODAL_TABLE_SQL = text("""
-    CREATE TABLE IF NOT EXISTS interview_answers_slack_modal (
-        id INTEGER PRIMARY KEY,
-        applicant_user_id TEXT,
-        thread_ts TEXT,
-        slack_modal_blocks TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-""")
-
-CREATE_AUDIT_LOG_TABLE_SQL = text("""
-    CREATE TABLE IF NOT EXISTS audit_log (
-        id INTEGER PRIMARY KEY,
-        action TEXT,
-        actor_user_id TEXT,
-        applicant_user_id TEXT,
-        thread_ts TEXT,
-        metadata TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-""")
-
-INSERT_SLACK_EVENT_SQL = text("""
-    INSERT INTO slack_thread_events
-        (thread_ts, user_id, user_name, event, message, parent_message, raw_response, timestamp, applicant_user_id)
-    VALUES
-        (:thread_ts, :user_id, :user_name, :event, :message,
-        :parent_message, :raw_response, :timestamp, :applicant_user_id)
-""")
-
-INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL = text("""
-    INSERT INTO interview_answers_slack_modal (applicant_user_id, thread_ts, slack_modal_blocks)
-    VALUES (:applicant_user_id, :thread_ts, :slack_modal_blocks)
-""")
-
-GET_THREAD_TS_SQL = text("""
-    SELECT thread_ts
-    FROM slack_thread_events
-    WHERE timestamp = :ts
-    LIMIT 1
-""")
-
-GET_APPLICANT_USER_ID_BY_THREAD_TS_SQL = text("""
-    SELECT applicant_user_id
-    FROM slack_thread_events
-    WHERE thread_ts = :thread_ts AND event = 'post'
-    LIMIT 1
-""")
-
-GET_MODAL_BLOCKS_PAYLOAD_SQL = text("""
-    SELECT slack_modal_blocks
-    FROM interview_answers_slack_modal
-    WHERE thread_ts = :thread_ts
-    ORDER BY created_at DESC
-    LIMIT 1
-""")
-
-INSERT_AUDIT_LOG_SQL = text("""
-    INSERT INTO audit_log (action, actor_user_id, applicant_user_id, thread_ts, metadata)
-    VALUES (:action, :actor_user_id, :applicant_user_id, :thread_ts, :metadata)
-""")
-
-GET_THREAD_EVENTS_SQL = text("""
-    SELECT thread_ts, user_id, user_name, event, message, parent_message,
-           raw_response, timestamp, applicant_user_id, created_at
-    FROM slack_thread_events
-    WHERE thread_ts = :thread_ts
-    ORDER BY created_at ASC
-""")
-
-HAS_EMAIL_SENT_SQL = text("""
-    SELECT 1
-    FROM audit_log
-    WHERE action = 'email_sent'
-      AND thread_ts = :thread_ts
-      AND metadata LIKE :email_type
-    LIMIT 1
-""")
 
 
 def create_slack_tables(conn):
@@ -132,6 +49,27 @@ def get_applicant_user_id_by_thread_ts(conn, thread_ts: str) -> str:
 def get_modal_blocks_payload_by_thread_ts(conn, thread_ts: str) -> dict:
     result = conn.execute(GET_MODAL_BLOCKS_PAYLOAD_SQL, {"thread_ts": thread_ts}).fetchone()
     return json.loads(result[0]) if result else None
+
+
+def insert_slack_event_row(conn, event_data: dict) -> None:
+    conn.execute(INSERT_SLACK_EVENT_SQL, event_data)
+
+
+def insert_interview_answers_slack_modal_row(
+    conn,
+    *,
+    applicant_user_id: str,
+    thread_ts: str,
+    slack_modal_blocks: str,
+) -> None:
+    conn.execute(
+        INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL,
+        {
+            "applicant_user_id": applicant_user_id,
+            "thread_ts": thread_ts,
+            "slack_modal_blocks": slack_modal_blocks,
+        },
+    )
 
 
 def insert_audit_event(

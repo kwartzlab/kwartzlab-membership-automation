@@ -1,16 +1,17 @@
 import asyncio
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 from slack_bolt.adapter.socket_mode.aiohttp import AsyncSocketModeHandler
 from slack_bolt.async_app import AsyncApp
+from sqlalchemy.engine import Engine
 
-import db
-import kos_api
+import services.kos_api as kos_api
 import slack_archiver
 import slack_handlers
 from config import Config
-from slack_web import get_user_group, get_users
+from services.slack.slack_web import get_user_group, get_users
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +60,11 @@ class SlackRuntime:
     slack_app: AsyncApp
     socket_handler: AsyncSocketModeHandler
     queue: asyncio.Queue
-    slack_db_engine: db.Engine
+    slack_db_engine: Engine
     kos_api_client: kos_api.KosApiClient
     config: Config
     cache_manager: UserCacheManager = None
-    mailer: any = None
+    mailer: Any = None
 
     def __post_init__(self):
         if self.cache_manager is None:

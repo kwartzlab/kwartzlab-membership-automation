@@ -2,8 +2,9 @@ import json
 import logging
 
 import config
-import kos_api
-from services.slack import (
+import services.kos_api as kos_api
+from services.kos_api import mark_outbox_on_error
+from services.slack.slack import (
     add_default_message,
     add_default_reacts,
     build_questions_modal_view,
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Config, outbox_id: int = None):
     application = get_application_from_outbox(kos_api_client, outbox_id=outbox_id)
     if not application:
-        return {"No outbox item to process"}
+        return None
     outbox_id = application["outbox_id"]
     try:
         logger.info(
@@ -64,9 +65,8 @@ def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Co
         return response
 
     except Exception as exc:
-        logger.exception("Failed to process outbox_id %s.", outbox_id)
-        kos_api_client.mark_outbox(outbox_id, last_error=str(exc)[:1000])
-        return {f"Submission Failed {exc}"}
+        mark_outbox_on_error(kos_api_client, outbox_id, exc, log=logger)
+        raise
 
 
 def get_application_from_outbox(kos_api_client: kos_api.KosApiClient, outbox_id: int = None):

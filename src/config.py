@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 
-def getenv(name: str, default: Optional[str] = None, *, required: bool = False) -> str:
+def getenv(name: str, default: Optional[str] = None, *, required: bool = False) -> str | None:
     value = os.getenv(name, default)
     if required and value is None:
         raise RuntimeError(f"Missing required environment variable: {name}")
@@ -26,7 +26,7 @@ class Config:
     slack_app_token: str
     slack_channel_id: str
 
-    authorized_usergroups: list
+    authorized_usergroups: list[str]
 
     # Email
     credentials_file: str
@@ -41,6 +41,9 @@ class Config:
     debug: bool
 
     port: int
+
+    # API auth
+    api_token: str
 
     # Paths
     project_root: str
@@ -77,6 +80,8 @@ def load_config() -> Config:
         # Meta
         environment=env,
         debug=getenv("DEBUG", "false").lower() == "true",
+        # API auth
+        api_token=getenv("API_TOKEN", required=True),
         # Paths
         project_root=str(project_root),
         archive_gdrive_url=getenv("ARCHIVE_GDRIVE_URL"),

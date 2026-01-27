@@ -131,7 +131,7 @@ def build_acceptance_email(
         to=user["email"],
         from_name=from_name or MEMBERSHIP_GROUP_FROM_NAME,
         from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
-        email_template=email_templates.ACCEPTENCE_EMAIL,
+        email_template=email_templates.ACCEPTANCE_EMAIL,
         template_vars={"name": user["first_preferred"]},
         signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
         bcc=bcc,

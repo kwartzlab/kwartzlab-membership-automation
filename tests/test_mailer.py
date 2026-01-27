@@ -1,7 +1,7 @@
 import base64
 from email import message_from_bytes
 
-import mailer
+import services.mailer as mailer
 from templates import email_templates
 
 

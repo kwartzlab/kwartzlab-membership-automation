@@ -1,6 +1,6 @@
 import logging
 
-import db
+import services.db as db
 
 logger = logging.getLogger(__name__)
 

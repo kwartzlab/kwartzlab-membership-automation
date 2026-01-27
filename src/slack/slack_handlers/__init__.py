@@ -1,6 +1,6 @@
-import drive_archive
+from services.archive import drive_archive
+from services.archive.thread_archive import archive_thread_events
 from services.slack.slack_web import post_message_reply, send_ephemeral_message
-from thread_archive import archive_thread_events
 
 from .app_mentions import register_app_mention_handler
 from .archive import register_archive_shortcut_handler

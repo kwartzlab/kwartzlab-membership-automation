@@ -4,9 +4,9 @@ from pathlib import Path
 import pytest
 from sqlalchemy import text
 
-import db
-import slack_handlers
-from slack_handlers import archive as archive_module
+import services.db as db
+from slack import slack_handlers
+from slack.slack_handlers import archive as archive_module
 
 
 class FakeApp:

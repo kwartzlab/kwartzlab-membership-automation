@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import Connection
 
 from core import config
-from db import (
+from services.db import (
     get_applicant_user_id_by_thread_ts,
     get_thread_ts,
     insert_interview_answers_slack_modal_row,

@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-import interviews
+from jobs import interviews
 from services import Services, get_services
 
 logger = logging.getLogger(__name__)

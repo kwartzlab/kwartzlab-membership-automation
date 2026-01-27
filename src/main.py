@@ -2,7 +2,7 @@ import logging
 
 import uvicorn
 
-import db
+import services.db as db
 import services.kos_api as kos_api
 from core import config
 from core.logging_setup import configure_logging

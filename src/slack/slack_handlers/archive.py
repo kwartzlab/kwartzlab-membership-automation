@@ -1,10 +1,10 @@
 import asyncio
 import logging
 
-import db
-import drive_archive
+import services.db as db
+from services.archive import drive_archive
+from services.archive.thread_archive import archive_thread_events
 from services.slack.slack_web import send_ephemeral_message
-from thread_archive import archive_thread_events
 
 logger = logging.getLogger(__name__)
 

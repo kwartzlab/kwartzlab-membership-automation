@@ -2,11 +2,11 @@ import logging
 
 import pytest
 
-import db
+import services.db as db
 import services.mailer as mailer
-import slack_handlers
-from slack_handlers import email_shortcut as email_shortcut_module
-from slack_handlers import reactions as reactions_module
+from slack import slack_handlers
+from slack.slack_handlers import email_shortcut as email_shortcut_module
+from slack.slack_handlers import reactions as reactions_module
 
 
 class FakeApp:

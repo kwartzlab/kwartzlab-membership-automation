@@ -1,6 +1,6 @@
 import logging
 
-import db
+import services.db as db
 import services.mailer as mailer
 
 from .reactions import _send_applicant_email

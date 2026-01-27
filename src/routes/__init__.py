@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import Depends, FastAPI
 
-import db
+import services.db as db
 from routes.email import router as email_router
 from routes.health import router as health_router
 from routes.outbox import router as outbox_router

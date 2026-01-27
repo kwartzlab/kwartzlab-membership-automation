@@ -1,4 +1,4 @@
-import db
+import services.db as db
 
 
 def test_get_thread_ts_and_applicant(slack_db_engine):

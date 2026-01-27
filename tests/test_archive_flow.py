@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import text
 
-import db
+import services.db as db
 import slack_handlers
 from slack_handlers import archive as archive_module
 

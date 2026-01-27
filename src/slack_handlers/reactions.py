@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 
-import db
+import services.db as db
 import services.mailer as mailer
 from services.slack.slack_web import post_message_reply, send_ephemeral_message
 

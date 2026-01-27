@@ -4,8 +4,8 @@ from dataclasses import dataclass
 import pytest
 
 import db
-from config import Config
 from slack_app import SlackRuntime
+from core.config import Config
 
 
 @dataclass
@@ -51,10 +51,10 @@ def cfg(tmp_path, slack_db_engine):
         credentials_file=str(tmp_path / "credentials.json"),
         token_file=str(tmp_path / "token.json"),
         poll_interval_seconds=1,
-        batch_size=1,
         environment="test",
         debug=False,
         port=8080,
+        api_token="test-api-token",
         project_root=str(tmp_path),
         archive_gdrive_url=None,
     )

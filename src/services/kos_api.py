@@ -94,9 +94,10 @@ def mark_outbox_on_error(
 ) -> None:
     """Log and mark an outbox item with a truncated error message."""
     (log or logger).exception("Failed to process outbox_id %s.", outbox_id)
-    error_text = str(exc)[:max_error_len]
+    timestamp = datetime.now(timezone.utc).isoformat()
+    error_text = str(exc)[:(max_error_len-len(timestamp)-50)]  # leave room for timestamp and extra info
     payload = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": timestamp,
         "error": error_text,
     }
     kos_api_client.mark_outbox(outbox_id, last_error=json.dumps(payload, ensure_ascii=True))

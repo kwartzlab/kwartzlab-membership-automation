@@ -5,7 +5,7 @@ from fastapi import Request
 from sqlalchemy.engine import Engine
 
 import services.kos_api as kos_api
-from config import Config
+from core.config import Config
 
 
 @dataclass

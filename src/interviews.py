@@ -1,7 +1,6 @@
 import json
 import logging
 
-import config
 import services.kos_api as kos_api
 from services.kos_api import mark_outbox_on_error
 from services.slack.slack import (
@@ -12,6 +11,7 @@ from services.slack.slack import (
     post_application,
     save_slack_modal_response,
 )
+from core import config
 
 logger = logging.getLogger(__name__)
 

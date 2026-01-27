@@ -34,7 +34,6 @@ class Config:
 
     # Worker behavior
     poll_interval_seconds: int
-    batch_size: int
 
     # Environment
     environment: str
@@ -66,7 +65,6 @@ def load_config() -> Config:
         # Default to BoD slack usergroup
         authorized_usergroups=getenv("AUTHORIZED_USERGROUPS", "SDFB4PKGE").split(" "),
         poll_interval_seconds=int(getenv("POLL_INTERVAL_SECONDS", "30")),
-        batch_size=int(getenv("BATCH_SIZE", "1")),
         # kOS API
         kos_api_base_url=getenv("KOS_API_BASE_URL", required=True),
         kos_api_token=getenv("KOS_API_TOKEN", required=True),

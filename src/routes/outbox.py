@@ -28,7 +28,6 @@ def process_outbox(
                 kos_api_client=kos_api_client, slack_conn=slack_conn, cfg=cfg, outbox_id=outbox_id
             )
         except Exception as exc:
-            mark_outbox_on_error(kos_api_client, outbox_id, exc, log=logger)
             return {"ok": False, "message": str(exc)}
 
     if hasattr(response, "data"):

@@ -2,13 +2,13 @@ import logging
 
 import uvicorn
 
-import config
 import db
 import services.kos_api as kos_api
-from logging_setup import configure_logging
-from services.mailer import get_gmail_service
 from routes import make_app
 from services import Services
+from services.mailer import get_gmail_service
+from core import config
+from core.logging_setup import configure_logging
 
 if __name__ == "__main__":
     configure_logging()

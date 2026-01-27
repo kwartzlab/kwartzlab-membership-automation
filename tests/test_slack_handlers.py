@@ -5,6 +5,8 @@ import pytest
 import db
 import services.mailer as mailer
 import slack_handlers
+from slack_handlers import email_shortcut as email_shortcut_module
+from slack_handlers import reactions as reactions_module
 
 
 class FakeApp:
@@ -51,8 +53,8 @@ async def test_reaction_email_sends_for_authorized_user(runtime, cfg, slack_db_e
         public.append(kwargs)
 
     monkeypatch.setattr(mailer, "send_message", fake_send_message)
-    monkeypatch.setattr(slack_handlers, "send_ephemeral_message", fake_send_ephemeral_message)
-    monkeypatch.setattr(slack_handlers, "post_message_reply", fake_post_message_reply)
+    monkeypatch.setattr(reactions_module, "send_ephemeral_message", fake_send_ephemeral_message)
+    monkeypatch.setattr(reactions_module, "post_message_reply", fake_post_message_reply)
 
     runtime.cache_manager.authorized_users.add("U1")
     with slack_db_engine.begin() as conn:
@@ -77,7 +79,7 @@ async def test_reaction_email_sends_for_authorized_user(runtime, cfg, slack_db_e
         "item": {"channel": cfg.slack_channel_id, "ts": "111.222"},
     }
 
-    await slack_handlers._handle_reaction_email(event, cfg, runtime)
+    await reactions_module._handle_reaction_email(event, cfg, runtime)
 
     assert len(sent) == 1
     assert len(ephemeral) == 1
@@ -93,8 +95,8 @@ async def test_reaction_email_skips_unauthorized_user(runtime, cfg, slack_db_eng
     public = []
 
     monkeypatch.setattr(mailer, "send_message", lambda *args, **kwargs: sent.append(1))
-    monkeypatch.setattr(slack_handlers, "send_ephemeral_message", lambda **kwargs: ephemeral.append(kwargs))
-    monkeypatch.setattr(slack_handlers, "post_message_reply", lambda **kwargs: public.append(kwargs))
+    monkeypatch.setattr(reactions_module, "send_ephemeral_message", lambda **kwargs: ephemeral.append(kwargs))
+    monkeypatch.setattr(reactions_module, "post_message_reply", lambda **kwargs: public.append(kwargs))
 
     with slack_db_engine.begin() as conn:
         conn.execute(
@@ -118,7 +120,7 @@ async def test_reaction_email_skips_unauthorized_user(runtime, cfg, slack_db_eng
         "item": {"channel": cfg.slack_channel_id, "ts": "111.222"},
     }
 
-    await slack_handlers._handle_reaction_email(event, cfg, runtime)
+    await reactions_module._handle_reaction_email(event, cfg, runtime)
 
     assert sent == []
     assert ephemeral == []
@@ -135,7 +137,7 @@ async def test_shortcut_has_no_signature_inputs(runtime, cfg, monkeypatch):
     def fake_send_ephemeral_message(**kwargs):
         ephemeral.append(kwargs)
 
-    monkeypatch.setattr(slack_handlers, "send_ephemeral_message", fake_send_ephemeral_message)
+    monkeypatch.setattr(email_shortcut_module, "send_ephemeral_message", fake_send_ephemeral_message)
 
     runtime.cache_manager.authorized_users.add("U1")
 
@@ -167,8 +169,8 @@ async def test_confirm_submit_sends_email(runtime, cfg, slack_db_engine, monkeyp
     responses = []
 
     monkeypatch.setattr(mailer, "send_message", lambda *args, **kwargs: sent.append(1))
-    monkeypatch.setattr(slack_handlers, "send_ephemeral_message", lambda **kwargs: ephemeral.append(kwargs))
-    monkeypatch.setattr(slack_handlers, "post_message_reply", lambda **kwargs: public.append(kwargs))
+    monkeypatch.setattr(reactions_module, "send_ephemeral_message", lambda **kwargs: ephemeral.append(kwargs))
+    monkeypatch.setattr(reactions_module, "post_message_reply", lambda **kwargs: public.append(kwargs))
 
     with slack_db_engine.begin() as conn:
         conn.execute(

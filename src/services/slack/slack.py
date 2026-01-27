@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import Connection
 
-import config
 from db import (
     get_applicant_user_id_by_thread_ts,
     get_thread_ts,
@@ -11,6 +10,7 @@ from db import (
     insert_slack_event_row,
 )
 from services.slack.slack_web import post_message_reply
+from core import config
 
 logger = logging.getLogger(__name__)
 

@@ -21,7 +21,7 @@ def _parse_raw_message(raw: str):
 def test_acceptance_email_signature(sample_user):
     message = mailer.build_acceptance_email(sample_user)
     msg, body = _parse_raw_message(message["raw"])
-    assert msg["subject"] == email_templates.ACCEPTENCE_EMAIL.subject
+    assert msg["subject"] == email_templates.ACCEPTANCE_EMAIL.subject
     assert "Membership Team" in body
     assert "Kwartzlab" in body
 

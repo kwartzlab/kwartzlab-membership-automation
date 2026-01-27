@@ -5,13 +5,13 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import Depends, FastAPI
 
 import services.db as db
+from jobs.poller import poller_loop
 from routes.email import router as email_router
 from routes.health import router as health_router
 from routes.outbox import router as outbox_router
 from services import Services
 from services.auth import verify_api_token
-from slack_app import build_slack_runtime
-from worker import poller_loop
+from slack.runtime import build_slack_runtime
 
 logger = logging.getLogger(__name__)
 

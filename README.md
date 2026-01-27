@@ -55,7 +55,6 @@ Optional variables:
 - `CREDENTIALS_FILE` (default: `credentials.json`)
 - `TOKEN_FILE` (default: `token.json`)
 - `POLL_INTERVAL_SECONDS` (default: `30`)
-- `BATCH_SIZE` (default: `1`)
 - `DEBUG` (`true`/`false`)
 - `PORT` (default: `8080`)
 

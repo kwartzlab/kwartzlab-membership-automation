@@ -5,8 +5,8 @@ import pytest
 from sqlalchemy import text
 
 import services.db as db
-import slack_handlers
-from slack_handlers import archive as archive_module
+from slack import slack_handlers
+from slack.slack_handlers import archive as archive_module
 
 
 class FakeApp:

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-import interviews
+from jobs import interviews
 
 logger = logging.getLogger(__name__)
 

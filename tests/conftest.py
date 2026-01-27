@@ -4,8 +4,8 @@ from dataclasses import dataclass
 import pytest
 
 import db
-from slack_app import SlackRuntime
 from core.config import Config
+from slack_app import SlackRuntime
 
 
 @dataclass

@@ -43,7 +43,7 @@ def register_email_actions(app, cfg, runtime):
                 bcc_email=bcc_email,
             )
 
-        except Exception as exc:
+        except Exception:
             logger.exception("Failed to send email.")
             raise
 
@@ -73,4 +73,3 @@ def register_email_actions(app, cfg, runtime):
             logger.debug("Failed to delete original message on cancel.")
 
         await respond(replace_original=True, text="Cancelled.", blocks=[])
-

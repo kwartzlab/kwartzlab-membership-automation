@@ -2,7 +2,6 @@
 
 from sqlalchemy import text
 
-
 CREATE_SLACK_THREAD_EVENTS_TABLE_SQL = text("""
     CREATE TABLE IF NOT EXISTS slack_thread_events (
         thread_ts TEXT,

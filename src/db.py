@@ -104,6 +104,6 @@ def get_thread_events(conn, thread_ts: str) -> list[dict]:
 def has_email_sent(conn, thread_ts: str, email_type: str) -> bool:
     result = conn.execute(
         HAS_EMAIL_SENT_SQL,
-        {"thread_ts": thread_ts, "email_type": f'%\"email_type\": \"{email_type}\"%'},
+        {"thread_ts": thread_ts, "email_type": f'%"email_type": "{email_type}"%'},
     ).fetchone()
     return result is not None

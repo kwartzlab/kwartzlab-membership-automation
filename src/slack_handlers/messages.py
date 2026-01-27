@@ -51,4 +51,3 @@ def register_message_handler(app, cfg, runtime, queue):
             "applicant_user_id": None,
         }
         await queue.put(event_data)
-

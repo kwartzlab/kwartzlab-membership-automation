@@ -47,7 +47,9 @@ async def test_archive_shortcut_writes_audit_and_ephemeral(runtime, cfg, slack_d
         )
 
     monkeypatch.setattr(archive_module, "archive_thread_events", lambda **kwargs: Path("archive.zip"))
-    monkeypatch.setattr(archive_module.drive_archive, "upload_file_to_drive", lambda *args, **kwargs: "https://drive.example/file")
+    monkeypatch.setattr(
+        archive_module.drive_archive, "upload_file_to_drive", lambda *args, **kwargs: "https://drive.example/file"
+    )
 
     ephemeral = []
     monkeypatch.setattr(archive_module, "send_ephemeral_message", lambda **kwargs: ephemeral.append(kwargs))

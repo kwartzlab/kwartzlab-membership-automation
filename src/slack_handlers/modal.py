@@ -62,4 +62,3 @@ def register_modal_handler(app, cfg, runtime):
                 )
             except Exception:
                 logger.debug("Failed to open error modal.")
-

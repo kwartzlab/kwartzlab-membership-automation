@@ -16,4 +16,3 @@ def register_app_mention_handler(app, cfg, runtime):
             logger.warning("Unauthorized user %s tried to use bot.", user_id)
             return
         logger.debug("Authorized user %s used command %s.", user_id, command)
-

@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends
 
 import interviews
 from services import Services, get_services
-from services.kos_api import mark_outbox_on_error
 
 logger = logging.getLogger(__name__)
 

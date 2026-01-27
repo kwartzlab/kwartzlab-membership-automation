@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 
 def register_archive_shortcut_handler(app, cfg, runtime):
-    
     @app.shortcut("archive_thread")
     async def handle_archive_shortcut(ack, body, logger):
         await ack()

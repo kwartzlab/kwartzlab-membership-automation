@@ -1,5 +1,5 @@
-import logging
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -77,7 +77,7 @@ class KosApiClient:
 
         try:
             response.raise_for_status()
-        except requests.HTTPError as exc:
+        except requests.HTTPError:
             logger.error("KOS API request failed: %s %s -> %s", method.upper(), url, response.status_code)
             raise
 
@@ -95,7 +95,7 @@ def mark_outbox_on_error(
     """Log and mark an outbox item with a truncated error message."""
     (log or logger).exception("Failed to process outbox_id %s.", outbox_id)
     timestamp = datetime.now(timezone.utc).isoformat()
-    error_text = str(exc)[:(max_error_len-len(timestamp)-50)]  # leave room for timestamp and extra info
+    error_text = str(exc)[: (max_error_len - len(timestamp) - 50)]  # leave room for timestamp and extra info
     payload = {
         "timestamp": timestamp,
         "error": error_text,

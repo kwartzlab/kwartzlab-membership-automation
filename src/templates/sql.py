@@ -4,6 +4,7 @@ from sqlalchemy import text
 
 CREATE_SLACK_THREAD_EVENTS_TABLE_SQL = text("""
     CREATE TABLE IF NOT EXISTS slack_thread_events (
+        id INTEGER PRIMARY KEY,
         thread_ts TEXT,
         user_id TEXT,
         user_name TEXT,
@@ -11,7 +12,7 @@ CREATE_SLACK_THREAD_EVENTS_TABLE_SQL = text("""
         message TEXT,
         parent_message TEXT,
         raw_response TEXT,
-        timestamp TEXT PRIMARY KEY,
+        timestamp TEXT,
         applicant_user_id TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )

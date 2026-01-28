@@ -22,8 +22,7 @@ def make_app(services: Services):
         logger.info("Starting application lifespan...")
 
         tasks: list[asyncio.Task] = []
-        with services.slack_db_engine.begin() as conn:
-            await asyncio.to_thread(db.create_slack_tables, conn)
+        await asyncio.to_thread(db.create_slack_tables, services.slack_db_engine)
 
         tasks.append(
             asyncio.create_task(

@@ -1,3 +1,12 @@
+# Visual Studio Code specific files
+.env.vs
+.vscode/launch.json
+.vscode/settings.json
+
+# Log files and databases
+*.log*
+*.db
+
 # Google Creds
 credentials.json
 token.json

@@ -27,13 +27,22 @@ def create_slack_db_engine(db_path: str) -> Engine:
     return engine
 
 
-def create_slack_tables(conn):
+def create_slack_tables(conn_or_engine):
+    if isinstance(conn_or_engine, Engine):
+        with conn_or_engine.begin() as conn:
+            _create_slack_tables(conn)
+        return
+
+    _create_slack_tables(conn_or_engine)
+
+
+def _create_slack_tables(conn) -> None:
     conn.execute(CREATE_SLACK_THREAD_EVENTS_TABLE_SQL)
     conn.execute(CREATE_INTERVIEW_ANSWERS_SLACK_MODAL_TABLE_SQL)
     conn.execute(CREATE_AUDIT_LOG_TABLE_SQL)
 
 
-def get_thread_ts(conn, ts: str) -> str:
+def get_thread_ts(conn, ts: str) -> str | None:
     result = conn.execute(GET_THREAD_TS_SQL, {"ts": ts}).fetchone()
     return result[0] if result else None
 

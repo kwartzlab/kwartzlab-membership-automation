@@ -21,16 +21,23 @@ def register_email_actions(app, cfg, runtime):
             choice = body["state"]["values"]["choice_block"]["choice_select"]["selected_option"]["value"]
             bcc_selected = body["state"]["values"].get("bcc_block", {}).get("bcc_self", {}).get("selected_options", [])
             bcc_email = mailer.MEMBERSHIP_GROUP_FROM_EMAIL if bcc_selected else None
-            with runtime.slack_db_engine.connect() as conn:
-                applicant_user_id = db.get_applicant_user_id_by_thread_ts(conn, body["container"]["thread_ts"])
-            if not applicant_user_id:
-                raise ValueError("No applicant user ID found for this message.")
-
             channel_id = body.get("channel", {}).get("id")
             thread_ts = body.get("container", {}).get("thread_ts")
             user_id = body.get("user", {}).get("id")
             if not channel_id or not thread_ts or not user_id:
                 raise ValueError("Missing channel_id, thread_ts, or user_id.")
+
+            with runtime.slack_db_engine.connect() as conn:
+                applicant_user_id = db.get_applicant_user_id_by_thread_ts(conn, thread_ts)
+                if not applicant_user_id:
+                    raise ValueError("No applicant user ID found for this message.")
+                if db.has_email_sent(conn, thread_ts, choice):
+                    await respond(
+                        replace_original=True,
+                        text="That email has already been sent for this thread.",
+                        blocks=[],
+                    )
+                    return
 
             await _send_applicant_email(
                 cfg=cfg,
@@ -45,15 +52,18 @@ def register_email_actions(app, cfg, runtime):
 
         except Exception:
             logger.exception("Failed to send email.")
-            raise
+            await respond(
+                replace_original=True,
+                text="Error sending email. Please try again.",
+                blocks=[],
+            )
+            return
 
         try:
             await respond(delete_original=True)
             return
         except Exception as exc:
-            await respond(replace_original=True, text=f"Error processing: {exc}", blocks=[])
-
-        await respond(replace_original=True, text="Cancelled.", blocks=[])
+            await respond(replace_original=True, text=f"Email sent, but could not clear this prompt: {exc}", blocks=[])
 
     @app.action("choice_select")
     async def handle_some_action(ack, body, logger):

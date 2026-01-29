@@ -7,6 +7,8 @@
 *.log*
 *.db
 
+archives/
+
 # Google Creds
 credentials.json
 token.json

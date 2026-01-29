@@ -4,8 +4,14 @@ from dataclasses import dataclass
 Use something like https://html5-editor.net/ to see and edit the format of the email in a more human way.
 """
 
-MEMBERSHIP_COORDINATOR_SIGNATURE: str = """
+MEMBERSHIP_TEAM_SIGNATURE: str = """
 <b>Membership Team</b><br/>
+Kwartzlab
+"""
+
+CUSTOM_SIGNATURE: str = """
+<b>{signature_name}</b><br/>
+{signature_role_block}
 Kwartzlab
 """
 

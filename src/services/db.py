@@ -9,6 +9,7 @@ from templates.sql import (
     CREATE_INTERVIEW_ANSWERS_SLACK_MODAL_TABLE_SQL,
     CREATE_SLACK_THREAD_EVENTS_TABLE_SQL,
     GET_APPLICANT_USER_ID_BY_THREAD_TS_SQL,
+    GET_FORM_SUBMISSION_ID_BY_THREAD_TS_SQL,
     GET_MODAL_BLOCKS_PAYLOAD_SQL,
     GET_THREAD_EVENTS_SQL,
     GET_THREAD_TS_SQL,
@@ -60,6 +61,14 @@ def get_modal_blocks_payload_by_thread_ts(conn, thread_ts: str) -> dict:
     return json.loads(result[0]) if result else None
 
 
+def get_form_submission_id_by_thread_ts(conn, thread_ts: str) -> str | None:
+    result = conn.execute(
+        GET_FORM_SUBMISSION_ID_BY_THREAD_TS_SQL,
+        {"thread_ts": thread_ts},
+    ).fetchone()
+    return result[0] if result else None
+
+
 def insert_slack_event_row(conn, event_data: dict) -> None:
     conn.execute(INSERT_SLACK_EVENT_SQL, event_data)
 
@@ -69,6 +78,7 @@ def insert_interview_answers_slack_modal_row(
     *,
     applicant_user_id: str,
     thread_ts: str,
+    form_submission_id: str | None,
     slack_modal_blocks: str,
 ) -> None:
     conn.execute(
@@ -76,6 +86,7 @@ def insert_interview_answers_slack_modal_row(
         {
             "applicant_user_id": applicant_user_id,
             "thread_ts": thread_ts,
+            "form_submission_id": form_submission_id,
             "slack_modal_blocks": slack_modal_blocks,
         },
     )

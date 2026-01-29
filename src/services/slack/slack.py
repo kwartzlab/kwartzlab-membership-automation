@@ -41,14 +41,23 @@ def insert_slack_event(conn: Connection, event_data: dict):
     if event_data.get("applicant_user_id") is None and event_data.get("thread_ts"):
         event_data["applicant_user_id"] = get_applicant_user_id_by_thread_ts(conn, event_data["thread_ts"])
 
+    event_data.setdefault("form_submission_id", None)
+
     insert_slack_event_row(conn, event_data)
 
 
-def save_slack_modal_response(conn: Connection, applicant_user_id: str, thread_ts: str, slack_modal_blocks: str):
+def save_slack_modal_response(
+    conn: Connection,
+    applicant_user_id: str,
+    thread_ts: str,
+    form_submission_id: str | None,
+    slack_modal_blocks: str,
+):
     insert_interview_answers_slack_modal_row(
         conn,
         applicant_user_id=applicant_user_id,
         thread_ts=thread_ts,
+        form_submission_id=form_submission_id,
         slack_modal_blocks=slack_modal_blocks,
     )
 

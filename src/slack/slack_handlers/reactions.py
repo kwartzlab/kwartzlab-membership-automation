@@ -38,6 +38,8 @@ async def _send_applicant_email(
     thread_ts: str,
     actor_user_id: str,
     bcc_self: bool = True,
+    signature_name: str | None = None,
+    signature_role: str | None = None,
 ) -> bool:
     user = await asyncio.to_thread(runtime.kos_api_client.get_user, int(applicant_user_id))
     if not user:
@@ -45,11 +47,26 @@ async def _send_applicant_email(
         return False
 
     if choice == "acceptance":
-        message = mailer.build_acceptance_email(user, bcc_self=bcc_self)
+        message = mailer.build_acceptance_email(
+            user,
+            bcc_self=bcc_self,
+            signature_name=signature_name,
+            signature_role=signature_role,
+        )
     elif choice == "return_visit":
-        message = mailer.build_return_visit_email(user, bcc_self=bcc_self)
+        message = mailer.build_return_visit_email(
+            user,
+            bcc_self=bcc_self,
+            signature_name=signature_name,
+            signature_role=signature_role,
+        )
     elif choice == "rejection":
-        message = mailer.build_rejection_email(user, bcc_self=bcc_self)
+        message = mailer.build_rejection_email(
+            user,
+            bcc_self=bcc_self,
+            signature_name=signature_name,
+            signature_role=signature_role,
+        )
     else:
         logger.warning("Invalid email choice: %s.", choice)
         return False

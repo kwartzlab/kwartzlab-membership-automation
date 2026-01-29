@@ -21,8 +21,18 @@ def register_email_actions(app, cfg, runtime):
             view = body.get("view", {})
             state_values = view.get("state", {}).get("values", {})
             choice = state_values["choice_block"]["choice_select"]["selected_option"]["value"]
+            signature_name = (
+                state_values.get("signature_name_block", {})
+                .get("signature_name_input", {})
+                .get("value")
+            )
+            signature_role = (
+                state_values.get("signature_role_block", {})
+                .get("signature_role_input", {})
+                .get("value")
+            )
             bcc_selected = state_values.get("bcc_block", {}).get("bcc_self", {}).get("selected_options", [])
-            bcc_email = mailer.MEMBERSHIP_GROUP_FROM_EMAIL if bcc_selected else None
+            bcc_self = bool(bcc_selected)
 
             metadata = json.loads(view.get("private_metadata", "{}"))
             channel_id = metadata.get("channel_id")
@@ -73,7 +83,9 @@ def register_email_actions(app, cfg, runtime):
                 channel_id=channel_id,
                 thread_ts=thread_ts,
                 actor_user_id=user_id,
-                bcc_email=bcc_email,
+                bcc_self=bcc_self,
+                signature_name=signature_name,
+                signature_role=signature_role,
             )
         except Exception:
             logger.exception("Failed to send email via modal.")
@@ -97,7 +109,7 @@ def register_email_actions(app, cfg, runtime):
         try:
             choice = body["state"]["values"]["choice_block"]["choice_select"]["selected_option"]["value"]
             bcc_selected = body["state"]["values"].get("bcc_block", {}).get("bcc_self", {}).get("selected_options", [])
-            bcc_email = mailer.MEMBERSHIP_GROUP_FROM_EMAIL if bcc_selected else None
+            bcc_self = bool(bcc_selected)
             channel_id = body.get("channel", {}).get("id")
             thread_ts = body.get("container", {}).get("thread_ts")
             user_id = body.get("user", {}).get("id")
@@ -124,7 +136,7 @@ def register_email_actions(app, cfg, runtime):
                 channel_id=channel_id,
                 thread_ts=thread_ts,
                 actor_user_id=user_id,
-                bcc_email=bcc_email,
+                bcc_self=bcc_self,
             )
 
         except Exception:

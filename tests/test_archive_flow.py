@@ -43,6 +43,7 @@ async def test_archive_shortcut_writes_audit_and_ephemeral(runtime, cfg, slack_d
                 "raw_response": "{}",
                 "timestamp": "111.222",
                 "applicant_user_id": "999",
+                "form_submission_id": "555",
             },
         )
 

@@ -5,7 +5,6 @@ import pytest
 import services.db as db
 import services.mailer as mailer
 from slack import slack_handlers
-from slack.slack_handlers import email_shortcut as email_shortcut_module
 from slack.slack_handlers import reactions as reactions_module
 
 
@@ -14,6 +13,7 @@ class FakeApp:
         self.actions = {}
         self.shortcuts = {}
         self.events = {}
+        self.views = {}
 
     def action(self, action_id):
         def decorator(fn):
@@ -32,6 +32,13 @@ class FakeApp:
     def event(self, name):
         def decorator(fn):
             self.events[name] = fn
+            return fn
+
+        return decorator
+
+    def view(self, callback_id):
+        def decorator(fn):
+            self.views[callback_id] = fn
             return fn
 
         return decorator
@@ -70,6 +77,7 @@ async def test_reaction_email_sends_for_authorized_user(runtime, cfg, slack_db_e
                 "raw_response": "{}",
                 "timestamp": "111.222",
                 "applicant_user_id": "999",
+                "form_submission_id": None,
             },
         )
 
@@ -81,11 +89,14 @@ async def test_reaction_email_sends_for_authorized_user(runtime, cfg, slack_db_e
 
     await reactions_module._handle_reaction_email(event, cfg, runtime)
 
-    assert len(sent) == 1
+    assert len(sent) == 0
     assert len(ephemeral) == 1
-    assert ephemeral[0]["text"] == "Acceptance email sent."
-    assert len(public) == 1
-    assert public[0]["text"] == "This application has been approved!"
+    assert ephemeral[0]["text"] == "Confirm sending email?"
+    blocks = ephemeral[0].get("blocks", [])
+    action_ids = {element.get("action_id") for block in blocks for element in block.get("elements", [])}
+    assert "confirm_reaction_email" in action_ids
+    assert "cancel_reaction_email" in action_ids
+    assert len(public) == 0
 
 
 @pytest.mark.asyncio
@@ -111,6 +122,7 @@ async def test_reaction_email_skips_unauthorized_user(runtime, cfg, slack_db_eng
                 "raw_response": "{}",
                 "timestamp": "111.222",
                 "applicant_user_id": "999",
+                "form_submission_id": None,
             },
         )
 
@@ -128,18 +140,18 @@ async def test_reaction_email_skips_unauthorized_user(runtime, cfg, slack_db_eng
 
 
 @pytest.mark.asyncio
-async def test_shortcut_has_no_signature_inputs(runtime, cfg, monkeypatch):
+async def test_shortcut_includes_signature_inputs(runtime, cfg, monkeypatch):
     app = FakeApp()
     slack_handlers.register_email_shortcut_handler(app, cfg, runtime)
 
-    ephemeral = []
+    opened_views = []
 
-    def fake_send_ephemeral_message(**kwargs):
-        ephemeral.append(kwargs)
-
-    monkeypatch.setattr(email_shortcut_module, "send_ephemeral_message", fake_send_ephemeral_message)
+    class FakeClient:
+        async def views_open(self, trigger_id, view):
+            opened_views.append(view)
 
     runtime.cache_manager.authorized_users.add("U1")
+    runtime.cache_manager.users_cache["U1"] = "Test User"
 
     async def ack():
         return None
@@ -148,14 +160,15 @@ async def test_shortcut_has_no_signature_inputs(runtime, cfg, monkeypatch):
         "user": {"id": "U1"},
         "channel": {"id": cfg.slack_channel_id},
         "message": {"ts": "111.222", "thread_ts": "111.222"},
+        "trigger_id": "TRIGGER",
     }
 
-    await app.shortcuts["email_applicant"](ack, body, logging.getLogger(__name__))
+    await app.shortcuts["email_applicant"](ack, body, FakeClient(), logging.getLogger(__name__))
 
-    assert ephemeral
-    block_ids = {block.get("block_id") for block in ephemeral[0].get("blocks", [])}
-    assert "sig_name_block" not in block_ids
-    assert "sig_role_block" not in block_ids
+    assert opened_views
+    block_ids = {block.get("block_id") for block in opened_views[0].get("blocks", [])}
+    assert "signature_name_block" in block_ids
+    assert "signature_role_block" in block_ids
 
 
 @pytest.mark.asyncio
@@ -185,6 +198,7 @@ async def test_confirm_submit_sends_email(runtime, cfg, slack_db_engine, monkeyp
                 "raw_response": "{}",
                 "timestamp": "111.222",
                 "applicant_user_id": "999",
+                "form_submission_id": None,
             },
         )
 

@@ -1,6 +1,7 @@
 import json
 
 from services.slack.slack_web import send_ephemeral_message
+from services import mailer
 
 
 def register_email_shortcut_handler(app, cfg, runtime):
@@ -24,6 +25,8 @@ def register_email_shortcut_handler(app, cfg, runtime):
             return
 
         private_metadata = json.dumps({"channel_id": channel, "thread_ts": thread_ts, "user_id": user})
+        signature_name = runtime.cache_manager.users_cache.get(user, "")
+        signature_role = mailer.DEFAULT_SIGNATURE_ROLE
         view = {
             "type": "modal",
             "callback_id": "email_applicant_modal",
@@ -54,6 +57,30 @@ def register_email_shortcut_handler(app, cfg, runtime):
                                 "value": "rejection",
                             },
                         ],
+                    },
+                },
+                {
+                    "type": "input",
+                    "optional": True,
+                    "block_id": "signature_name_block",
+                    "label": {"type": "plain_text", "text": "Signature name (optional)"},
+                    "element": {
+                        "type": "plain_text_input",
+                        "action_id": "signature_name_input",
+                        "placeholder": {"type": "plain_text", "text": "e.g., Alex"},
+                        "initial_value": signature_name,
+                    },
+                },
+                {
+                    "type": "input",
+                    "optional": True,
+                    "block_id": "signature_role_block",
+                    "label": {"type": "plain_text", "text": "Signature role (optional)"},
+                    "element": {
+                        "type": "plain_text_input",
+                        "action_id": "signature_role_input",
+                        "placeholder": {"type": "plain_text", "text": "e.g., Membership Coordinator"},
+                        "initial_value": signature_role,
                     },
                 },
                 {

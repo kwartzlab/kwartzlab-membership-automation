@@ -1,7 +1,7 @@
 import json
 
-from services.slack.slack_web import send_ephemeral_message
 from services import mailer
+from services.slack.slack_web import send_ephemeral_message
 
 
 def register_email_shortcut_handler(app, cfg, runtime):

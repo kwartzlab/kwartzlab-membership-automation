@@ -2,7 +2,6 @@ import json
 import logging
 
 import services.db as db
-import services.mailer as mailer
 from services.slack.slack_web import send_ephemeral_message
 
 from .reactions import _send_applicant_email
@@ -21,16 +20,8 @@ def register_email_actions(app, cfg, runtime):
             view = body.get("view", {})
             state_values = view.get("state", {}).get("values", {})
             choice = state_values["choice_block"]["choice_select"]["selected_option"]["value"]
-            signature_name = (
-                state_values.get("signature_name_block", {})
-                .get("signature_name_input", {})
-                .get("value")
-            )
-            signature_role = (
-                state_values.get("signature_role_block", {})
-                .get("signature_role_input", {})
-                .get("value")
-            )
+            signature_name = state_values.get("signature_name_block", {}).get("signature_name_input", {}).get("value")
+            signature_role = state_values.get("signature_role_block", {}).get("signature_role_input", {}).get("value")
             bcc_selected = state_values.get("bcc_block", {}).get("bcc_self", {}).get("selected_options", [])
             bcc_self = bool(bcc_selected)
 

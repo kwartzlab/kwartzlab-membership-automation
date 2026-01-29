@@ -43,13 +43,22 @@ CREATE_AUDIT_LOG_TABLE_SQL = text("""
 """)
 
 INSERT_SLACK_EVENT_SQL = text("""
-    INSERT INTO slack_thread_events
-        (thread_ts, form_submission_id, user_id, user_name, event, message, parent_message, raw_response, timestamp, applicant_user_id)
+    INSERT INTO slack_thread_events(
+        thread_ts,
+        form_submission_id,
+        user_id,
+        user_name,
+        event,
+        message,
+        parent_message,
+        raw_response,
+        timestamp,
+        applicant_user_id
+    )
     VALUES
         (:thread_ts, :form_submission_id, :user_id, :user_name, :event, :message,
         :parent_message, :raw_response, :timestamp, :applicant_user_id)
 """)
-
 INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL = text("""
     INSERT INTO interview_answers_slack_modal (applicant_user_id, thread_ts, form_submission_id, slack_modal_blocks)
     VALUES (:applicant_user_id, :thread_ts, :form_submission_id, :slack_modal_blocks)

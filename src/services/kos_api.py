@@ -38,6 +38,14 @@ class KosApiClient:
                 return None
             raise
 
+    def get_form_submission(self, form_submission_id: int) -> Optional[dict]:
+        try:
+            return self._get_json(f"/api/form_submissions/{form_submission_id}")
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                return None
+            raise
+
     def mark_outbox(self, outbox_id: int, last_error: Optional[str] = None) -> dict:
         payload: Optional[dict[str, Any]]
         if last_error is None:

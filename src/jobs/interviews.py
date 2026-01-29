@@ -16,15 +16,23 @@ from services.slack.slack import (
 logger = logging.getLogger(__name__)
 
 
-def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Config, outbox_id: int = None):
-    application = get_application_from_outbox(kos_api_client, outbox_id=outbox_id)
+def process_one(
+    kos_api_client: kos_api.KosApiClient,
+    slack_conn,
+    cfg: config.Config,
+    outbox_id: int = None,
+    form_submission_id: int = None,
+):
+    application = get_application_from_outbox(
+        kos_api_client, outbox_id=outbox_id, form_submission_id=form_submission_id
+    )
     if not application:
         return None
-    outbox_id = application["outbox_id"]
+    outbox_id = application.get("outbox_id")
     try:
         logger.info(
             "Processing submission %s (outbox_id=%s).",
-            application["form_submission_id"],
+            application.get("form_submission_id", form_submission_id),
             outbox_id,
         )
         response = post_application(
@@ -34,6 +42,7 @@ def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Co
         ts = response["ts"]
         event_data = {
             "thread_ts": ts,
+            "form_submission_id": application.get("form_submission_id", form_submission_id),
             "user_id": "bot",
             "user_name": "bot",
             "event": "post",
@@ -59,9 +68,11 @@ def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Co
             conn=slack_conn,
             applicant_user_id=application["user_id"],
             thread_ts=ts,
+            form_submission_id=str(application.get("form_submission_id", form_submission_id)),
             slack_modal_blocks=json.dumps(modal),
         )
-        kos_api_client.mark_outbox(outbox_id)
+        if outbox_id:
+            kos_api_client.mark_outbox(outbox_id)
         return response
 
     except Exception as exc:
@@ -69,12 +80,17 @@ def process_one(kos_api_client: kos_api.KosApiClient, slack_conn, cfg: config.Co
         raise
 
 
-def get_application_from_outbox(kos_api_client: kos_api.KosApiClient, outbox_id: int = None):
-    if outbox_id is None:
-        logger.debug("Fetching next outbox item.")
-        row = kos_api_client.get_next_outbox()
-    else:
+def get_application_from_outbox(
+    kos_api_client: kos_api.KosApiClient, outbox_id: int = None, form_submission_id: int = None
+):
+    if form_submission_id is not None:
+        logger.debug("Fetching form submission by id %s.", form_submission_id)
+        row = kos_api_client.get_form_submission(form_submission_id)
+    elif outbox_id is not None:
         logger.debug("Fetching outbox by id %s.", outbox_id)
         row = kos_api_client.get_outbox(outbox_id)
+    else:
+        logger.debug("Fetching next outbox item.")
+        row = kos_api_client.get_next_outbox()
 
     return row

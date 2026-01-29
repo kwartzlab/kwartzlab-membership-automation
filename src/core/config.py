@@ -11,6 +11,17 @@ def getenv(name: str, default: Optional[str] = None, *, required: bool = False) 
     return value
 
 
+_PROJECT_ROOT_MARKERS = (".git", "pyproject.toml", "requirements.txt")
+
+
+def _find_project_root(start: Path) -> Path:
+    start = start.resolve()
+    for parent in (start, *start.parents):
+        if any((parent / marker).exists() for marker in _PROJECT_ROOT_MARKERS):
+            return parent
+    return start
+
+
 @dataclass(frozen=True)
 class Config:
     # kOS API
@@ -51,7 +62,13 @@ class Config:
 
 def load_config() -> Config:
     env = getenv("ENVIRONMENT", "development")
-    project_root = Path(getenv("PROJECT_ROOT", str(Path(__file__).resolve().parent.parent))).resolve()
+    project_root_env = getenv("PROJECT_ROOT")
+    if project_root_env:
+        project_root = Path(project_root_env).expanduser().resolve()
+    else:
+        project_root = _find_project_root(Path(__file__).resolve().parent)
+        if project_root == Path(__file__).resolve().parent:
+            project_root = _find_project_root(Path.cwd())
 
     def resolve_path(value: str) -> str:
         path = Path(value)

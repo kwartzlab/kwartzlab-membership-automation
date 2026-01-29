@@ -24,14 +24,14 @@ SENDER_USER_ID = "me"
 MEMBERSHIP_GROUP_FROM_NAME = "Membership Coordinator"
 MEMBERSHIP_GROUP_FROM_EMAIL = "membership@kwartzlab.ca"
 MEMBERSHIP_GROUP_REPLY_TO = "membership@kwartzlab.ca"
-DEFAULT_SIGNATURE_ROLE = "Membership Coordinator"
+DEFAULT_SIGNATURE_ROLE = "Membership Team"
 
 
 def get_gmail_service(credentials_file: str, token_file: str) -> object:
     creds = None
-    base_path = Path(__file__).resolve().parents[1]
-    credentials_file = Path(base_path, credentials_file)
-    token_file = Path(base_path, token_file)
+
+    credentials_file = Path(credentials_file)
+    token_file = Path(token_file)
 
     if token_file.exists():
         creds = Credentials.from_authorized_user_file(str(token_file), SCOPES)
@@ -118,26 +118,65 @@ def build_email_with_template(
     return message
 
 
+def _resolve_bcc_and_signature(
+    *,
+    bcc_self: bool,
+    signature_name: str | None,
+    signature_role: str | None,
+) -> tuple[str | None, str]:
+    bcc = MEMBERSHIP_GROUP_FROM_EMAIL if bcc_self else None
+    signature = email_templates.MEMBERSHIP_TEAM_SIGNATURE
+    if signature_name or signature_role:
+        signature = email_templates.CUSTOM_SIGNATURE
+    return bcc, signature
+
+
+def _build_membership_email(
+    user,
+    *,
+    email_template: email_templates.Email,
+    from_name: str | None = None,
+    signature_name: str | None = None,
+    signature_role: str | None = None,
+    bcc_self: bool = True,
+    reply_to: str | None = None,
+):
+    bcc, signature = _resolve_bcc_and_signature(
+        bcc_self=bcc_self,
+        signature_name=signature_name,
+        signature_role=signature_role,
+    )
+    return build_email_with_template(
+        to=user["email"],
+        from_name=from_name or MEMBERSHIP_GROUP_FROM_NAME,
+        from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
+        email_template=email_template,
+        template_vars={"name": user["first_preferred"]},
+        signature=signature,
+        bcc=bcc,
+        signature_name=signature_name or "",
+        signature_role=signature_role,
+        reply_to=reply_to or MEMBERSHIP_GROUP_REPLY_TO,
+    )
+
+
 def build_acceptance_email(
     user,
     *,
     from_name: str | None = None,
     signature_name: str | None = None,
     signature_role: str | None = None,
-    bcc: str | None = None,
+    bcc_self: bool = True,
     reply_to: str | None = None,
 ):
-    return build_email_with_template(
-        to=user["email"],
-        from_name=from_name or MEMBERSHIP_GROUP_FROM_NAME,
-        from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
+    return _build_membership_email(
+        user,
         email_template=email_templates.ACCEPTANCE_EMAIL,
-        template_vars={"name": user["first_preferred"]},
-        signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
-        bcc=bcc,
-        signature_name=signature_name or "",
+        from_name=from_name,
+        signature_name=signature_name,
         signature_role=signature_role,
-        reply_to=reply_to or MEMBERSHIP_GROUP_REPLY_TO,
+        bcc_self=bcc_self,
+        reply_to=reply_to,
     )
 
 
@@ -147,20 +186,17 @@ def build_return_visit_email(
     from_name: str | None = None,
     signature_name: str | None = None,
     signature_role: str | None = None,
-    bcc: str | None = None,
+    bcc_self: bool = True,
     reply_to: str | None = None,
 ):
-    return build_email_with_template(
-        to=user["email"],
-        from_name=from_name or MEMBERSHIP_GROUP_FROM_NAME,
-        from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
+    return _build_membership_email(
+        user,
         email_template=email_templates.RETURN_EMAIL,
-        template_vars={"name": user["first_preferred"]},
-        signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
-        bcc=bcc,
-        signature_name=signature_name or "",
+        from_name=from_name,
+        signature_name=signature_name,
         signature_role=signature_role,
-        reply_to=reply_to or MEMBERSHIP_GROUP_REPLY_TO,
+        bcc_self=bcc_self,
+        reply_to=reply_to,
     )
 
 
@@ -170,18 +206,15 @@ def build_rejection_email(
     from_name: str | None = None,
     signature_name: str | None = None,
     signature_role: str | None = None,
-    bcc: str | None = None,
+    bcc_self: bool = True,
     reply_to: str | None = None,
 ):
-    return build_email_with_template(
-        to=user["email"],
-        from_name=from_name or MEMBERSHIP_GROUP_FROM_NAME,
-        from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
+    return _build_membership_email(
+        user,
         email_template=email_templates.REJECTION_EMAIL,
-        template_vars={"name": user["first_preferred"]},
-        signature=email_templates.MEMBERSHIP_COORDINATOR_SIGNATURE,
-        bcc=bcc,
-        signature_name=signature_name or "",
+        from_name=from_name,
+        signature_name=signature_name,
         signature_role=signature_role,
-        reply_to=reply_to or MEMBERSHIP_GROUP_REPLY_TO,
+        bcc_self=bcc_self,
+        reply_to=reply_to,
     )

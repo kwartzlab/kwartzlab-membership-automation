@@ -42,3 +42,35 @@ def process_outbox(
             detail={"message": "Outbox item not found"},
         )
     return {"ok": False, "message": response}
+
+
+@router.post("/process-form-submission/{form_submission_id}")
+def process_form_submission(
+    form_submission_id: int,
+    services: Annotated[Services, Depends(get_services)],
+):
+    kos_api_client = services.kos_api_client
+    cfg = services.config
+    slack_engine = services.slack_db_engine
+
+    with slack_engine.begin() as slack_conn:
+        try:
+            response = interviews.process_one(
+                kos_api_client=kos_api_client, slack_conn=slack_conn, cfg=cfg, form_submission_id=form_submission_id
+            )
+        except Exception as exc:
+            logger.exception("Failed to process form submission %s.", form_submission_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"message": "Failed to process form submission"},
+            ) from exc
+
+    if hasattr(response, "data"):
+        return {"ok": response.data.get("ok"), "channel": response.data.get("channel"), "ts": response.data.get("ts")}
+
+    if response is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "Form submission not found"},
+        )
+    return {"ok": False, "message": response}

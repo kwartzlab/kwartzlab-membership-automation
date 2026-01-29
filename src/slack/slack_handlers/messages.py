@@ -41,6 +41,7 @@ def register_message_handler(app, cfg, runtime, queue):
 
         event_data = {
             "thread_ts": thread_ts,
+            "form_submission_id": None,
             "user_id": user_id,
             "user_name": runtime.cache_manager.users_cache.get(user_id, user_id),
             "event": event_type,

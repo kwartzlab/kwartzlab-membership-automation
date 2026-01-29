@@ -6,6 +6,7 @@ CREATE_SLACK_THREAD_EVENTS_TABLE_SQL = text("""
     CREATE TABLE IF NOT EXISTS slack_thread_events (
         id INTEGER PRIMARY KEY,
         thread_ts TEXT,
+        form_submission_id TEXT,
         user_id TEXT,
         user_name TEXT,
         event TEXT,
@@ -23,6 +24,7 @@ CREATE_INTERVIEW_ANSWERS_SLACK_MODAL_TABLE_SQL = text("""
         id INTEGER PRIMARY KEY,
         applicant_user_id TEXT,
         thread_ts TEXT,
+        form_submission_id TEXT,
         slack_modal_blocks TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
@@ -41,16 +43,25 @@ CREATE_AUDIT_LOG_TABLE_SQL = text("""
 """)
 
 INSERT_SLACK_EVENT_SQL = text("""
-    INSERT INTO slack_thread_events
-        (thread_ts, user_id, user_name, event, message, parent_message, raw_response, timestamp, applicant_user_id)
+    INSERT INTO slack_thread_events(
+        thread_ts,
+        form_submission_id,
+        user_id,
+        user_name,
+        event,
+        message,
+        parent_message,
+        raw_response,
+        timestamp,
+        applicant_user_id
+    )
     VALUES
-        (:thread_ts, :user_id, :user_name, :event, :message,
+        (:thread_ts, :form_submission_id, :user_id, :user_name, :event, :message,
         :parent_message, :raw_response, :timestamp, :applicant_user_id)
 """)
-
 INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL = text("""
-    INSERT INTO interview_answers_slack_modal (applicant_user_id, thread_ts, slack_modal_blocks)
-    VALUES (:applicant_user_id, :thread_ts, :slack_modal_blocks)
+    INSERT INTO interview_answers_slack_modal (applicant_user_id, thread_ts, form_submission_id, slack_modal_blocks)
+    VALUES (:applicant_user_id, :thread_ts, :form_submission_id, :slack_modal_blocks)
 """)
 
 GET_THREAD_TS_SQL = text("""
@@ -81,11 +92,18 @@ INSERT_AUDIT_LOG_SQL = text("""
 """)
 
 GET_THREAD_EVENTS_SQL = text("""
-    SELECT thread_ts, user_id, user_name, event, message, parent_message,
+    SELECT thread_ts, form_submission_id, user_id, user_name, event, message, parent_message,
            raw_response, timestamp, applicant_user_id, created_at
     FROM slack_thread_events
     WHERE thread_ts = :thread_ts
     ORDER BY created_at ASC
+""")
+
+GET_FORM_SUBMISSION_ID_BY_THREAD_TS_SQL = text("""
+    SELECT form_submission_id
+    FROM slack_thread_events
+    WHERE thread_ts = :thread_ts AND event = 'post'
+    LIMIT 1
 """)
 
 HAS_EMAIL_SENT_SQL = text("""

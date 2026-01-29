@@ -37,7 +37,9 @@ async def _send_applicant_email(
     channel_id: str,
     thread_ts: str,
     actor_user_id: str,
-    bcc_email: str | None = None,
+    bcc_self: bool = True,
+    signature_name: str | None = None,
+    signature_role: str | None = None,
 ) -> bool:
     user = await asyncio.to_thread(runtime.kos_api_client.get_user, int(applicant_user_id))
     if not user:
@@ -45,11 +47,26 @@ async def _send_applicant_email(
         return False
 
     if choice == "acceptance":
-        message = mailer.build_acceptance_email(user, bcc=bcc_email)
+        message = mailer.build_acceptance_email(
+            user,
+            bcc_self=bcc_self,
+            signature_name=signature_name,
+            signature_role=signature_role,
+        )
     elif choice == "return_visit":
-        message = mailer.build_return_visit_email(user, bcc=bcc_email)
+        message = mailer.build_return_visit_email(
+            user,
+            bcc_self=bcc_self,
+            signature_name=signature_name,
+            signature_role=signature_role,
+        )
     elif choice == "rejection":
-        message = mailer.build_rejection_email(user, bcc=bcc_email)
+        message = mailer.build_rejection_email(
+            user,
+            bcc_self=bcc_self,
+            signature_name=signature_name,
+            signature_role=signature_role,
+        )
     else:
         logger.warning("Invalid email choice: %s.", choice)
         return False
@@ -126,14 +143,49 @@ async def _handle_reaction_email(event, cfg, runtime):
             logger.info("Email already sent for thread %s and choice %s; skipping.", thread_ts, choice)
             return
 
-        await _send_applicant_email(
+        payload = json.dumps(
+            {
+                "choice": choice,
+                "applicant_user_id": str(applicant_user_id),
+                "channel_id": channel_id,
+                "thread_ts": thread_ts,
+                "actor_user_id": user_id,
+            }
+        )
+        send_ephemeral_message(
             cfg=cfg,
-            runtime=runtime,
-            choice=choice,
-            applicant_user_id=applicant_user_id,
-            channel_id=channel_id,
+            channel=channel_id,
+            user=user_id,
             thread_ts=thread_ts,
-            actor_user_id=user_id,
+            text="Confirm sending email?",
+            blocks=[
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"Send *{EMAIL_EPHEMERAL_LABELS[choice]}* email for this applicant?",
+                    },
+                },
+                {
+                    "type": "actions",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "action_id": "confirm_reaction_email",
+                            "text": {"type": "plain_text", "text": "Send email"},
+                            "style": "primary",
+                            "value": payload,
+                        },
+                        {
+                            "type": "button",
+                            "action_id": "cancel_reaction_email",
+                            "text": {"type": "plain_text", "text": "Cancel"},
+                            "style": "danger",
+                            "value": payload,
+                        },
+                    ],
+                },
+            ],
         )
     except Exception:
         logger.exception("Failed to process reaction email.")
@@ -146,6 +198,7 @@ def register_reaction_handlers(app, cfg, runtime, queue):
             return
         event_data = {
             "thread_ts": None,
+            "form_submission_id": None,
             "user_id": event.get("user"),
             "user_name": runtime.cache_manager.users_cache.get(event.get("user"), event.get("user")),
             "event": "react_add",
@@ -164,6 +217,7 @@ def register_reaction_handlers(app, cfg, runtime, queue):
             return
         event_data = {
             "thread_ts": None,
+            "form_submission_id": None,
             "user_id": event.get("user"),
             "user_name": runtime.cache_manager.users_cache.get(event.get("user"), event.get("user")),
             "event": "react_remove",

@@ -13,6 +13,7 @@ def test_get_thread_ts_and_applicant(slack_db_engine):
             "raw_response": "{}",
             "timestamp": "111.222",
             "applicant_user_id": "999",
+            "form_submission_id": None,
         }
         conn.execute(db.INSERT_SLACK_EVENT_SQL, event_data)
 

@@ -4,13 +4,8 @@ Automates Kwartzlab membership coordinator workflows by syncing kOS membership s
 
 ## Features
 - Polls kOS form submissions and posts application summaries to a Slack channel.
-- Stores Slack thread events (posts, replies, edits, deletes, reactions) in SQLite, with archiving to JSONL locally & GDrive.
-- Message shortcuts and reaction flows to send templated emails via Gmail.
-
-## Planned Features
-- Google Workspace account management (creation, deletion, password reset)
-- kOS user status updating
-- Slack invites
+- Stores Slack thread events (posts, replies, edits, deletes, reactions) in SQLite, with archiving to JSONL locally & to GDrive.
+- Message shortcuts and reaction flows to send templated emails via Gmail as the Membership Coordinator account.
 
 ## Workflow
 1) The poller checks the kOS outbox every `POLL_INTERVAL_SECONDS` and posts new applications to `SLACK_CHANNEL_ID`.
@@ -59,6 +54,7 @@ Required environment variables:
 
 Optional environment variables:
 - `AUTHORIZED_USERGROUPS` (space-separated Slack usergroup IDs; default: `SDFB4PKGE`, the BoD slack id)
+- `AUTHORIZED_USERS` (space-separated Slack IDs, no default)
 - `KOS_API_TIMEOUT_SECONDS` (default: `10`)
 - `POLL_INTERVAL_SECONDS` (default: `30`)
 - `SQLITE_DB_PATH` (default: `slack_threads.db`, resolved relative to project root)
@@ -123,17 +119,21 @@ curl -H "Authorization: Bearer $API_TOKEN" \
 ```
 
 ## Docker
-The repo includes `dockerfile` and `compose.yaml`.
+The repo includes `dockerfile`, `compose.yaml`, and `compose.prod.yaml`.
+
+**Note**: You must run locally at least once to generate the `token.json` file.
 
 ### Docker Compose
-`compose.yaml` attaches the container to the external network `kos-base_data-network`. Create it once if needed:
-```bash
-docker network create kos-base_data-network
-```
 
 Start the app:
 ```bash
 docker compose up --build -d
+```
+
+### Docker Compose (Prod)
+Use the production override to pull the published image (always pulls latest for the tag):
+```bash
+docker compose -f compose.prod.yaml up -d
 ```
 
 ### Docker CLI
@@ -141,28 +141,18 @@ docker compose up --build -d
 docker build -t kwartzlab-membership-automation .
 docker run --env-file .env --name kwartzlab-membership-automation \
   --network kos-base_data-network \
-  kwartzlab-membership-automation
-```
-
-### Credentials in Docker
-By default, `token.json` and `credentials.json` are included when building the image, this is great for local development but won't be included in the production image.
-
-To better simulate the production env, mount `token.json` and `credentials.json` as host paths.
-
-```bash
-docker run --env-file .env --name kwartzlab-membership-automation \
-  --network kos-base_data-network \
+  -v "$PWD/logs:/app/logs" \
   -v "$PWD/credentials.json:/app/credentials.json" \
   -v "$PWD/token.json:/app/token.json" \
+  -v "$PWD/database/slack_threads.db:/app/slack_threads.db" \
+  -v "$PWD/archives:/app/archives" \
   kwartzlab-membership-automation
 ```
 
-## Project Structure
-- `src/` application code
-- `archives/` JSONL thread archives
-- `credentials.json` Gmail/Drive OAuth client
-- `token.json` OAuth token cache
-- `slack_threads.db` SQLite data store (default)
+### Mounting in Docker
+Certain files and folder should be mounted in Docker, instead of being part of the docker persistant volume.
+By default, the `compose.yaml` file mounts all recommended paths with project relative paths.
 
+The only mounted paths required are `credentials.json` and `token.json`, the rest can safely ignored/unmounted.
 ## Notes
 - This project complements kOS but does not directly integrate with its database.

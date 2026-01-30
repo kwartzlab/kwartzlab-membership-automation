@@ -100,7 +100,7 @@ async def _send_applicant_email(
         cfg=cfg,
         channel=channel_id,
         user=actor_user_id,
-        text=f"{EMAIL_EPHEMERAL_LABELS[choice]} email sent.",
+        text=f"{EMAIL_EPHEMERAL_LABELS[choice]} email sent to {user.get('email')}.",
         thread_ts=thread_ts,
     )
 

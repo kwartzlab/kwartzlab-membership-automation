@@ -16,10 +16,10 @@ async def poller_loop(cfg, kos_api_client, slack_engine):
         # Inner loop to process all available outbox items
         while True:
             try:
-                logger.debug("Checking for missed messages.")
+                logger.info("Checking for outbox items.")
                 result = await asyncio.to_thread(_process_one_threadsafe, kos_api_client, slack_engine, cfg)
                 if result is None:
-                    logger.debug("No outbox items to process.")
+                    logger.info("No outbox items to process.")
                     break
             except asyncio.CancelledError:
                 logger.info("Poller cancelled.")

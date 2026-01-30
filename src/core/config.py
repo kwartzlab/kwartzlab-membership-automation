@@ -38,7 +38,7 @@ class Config:
     slack_channel_id: str
 
     authorized_usergroups: list[str]
-
+    authorized_users: list[str]
     # Email
     credentials_file: str
     token_file: str
@@ -81,15 +81,18 @@ def load_config() -> Config:
         slack_app_token=getenv("SLACK_APP_TOKEN", required=True),
         # Default to BoD slack usergroup
         authorized_usergroups=getenv("AUTHORIZED_USERGROUPS", "SDFB4PKGE").split(" "),
-        poll_interval_seconds=int(getenv("POLL_INTERVAL_SECONDS", "30")),
+        authorized_users=getenv("AUTHORIZED_USERS", "").split(" "),
         # kOS API
         kos_api_base_url=getenv("KOS_API_BASE_URL", required=True),
         kos_api_token=getenv("KOS_API_TOKEN", required=True),
         kos_api_timeout_seconds=int(getenv("KOS_API_TIMEOUT_SECONDS", "10")),
-        sqlite_db_path=resolve_path(getenv("SQLITE_DB_PATH", "slack_threads.db")),
-        # Email
+        poll_interval_seconds=int(getenv("POLL_INTERVAL_SECONDS", "30")),
+        # SQLite db
+        sqlite_db_path=resolve_path(getenv("SQLITE_DB_PATH", "./database/slack_threads.db")),
+        # Google API
         credentials_file=resolve_path(getenv("CREDENTIALS_FILE", "credentials.json")),
         token_file=resolve_path(getenv("TOKEN_FILE", "token.json")),
+        archive_gdrive_url=getenv("ARCHIVE_GDRIVE_URL"),
         # API Service
         port=int(getenv("PORT", 8080)),
         # Meta
@@ -99,5 +102,4 @@ def load_config() -> Config:
         api_token=getenv("API_TOKEN", required=True),
         # Paths
         project_root=str(project_root),
-        archive_gdrive_url=getenv("ARCHIVE_GDRIVE_URL"),
     )

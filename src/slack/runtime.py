@@ -40,10 +40,24 @@ class UserCacheManager:
                 # Reset authorized users to handle deauthorizations
                 self.authorized_users = set()
 
-                for group_id in self.config.authorized_usergroups:
-                    authorized_users = await asyncio.to_thread(get_user_group, self.config, group_id)
-                    for user_id in authorized_users.get("users", []):
+                while True:
+                    for group_id in self.config.authorized_usergroups:
+                        try:
+                            authorized_users = await asyncio.to_thread(get_user_group, self.config, group_id)
+                        except Exception as e:
+                            logger.error("Failed to fetch user group %s: %s", group_id, str(e))
+                            continue
+                        for user_id in authorized_users.get("users", []):
+                            self.authorized_users.add(user_id)
+
+                    for user_id in self.config.authorized_users:
                         self.authorized_users.add(user_id)
+
+                    if self.authorized_users:
+                        break
+
+                    logger.warning("No authorized users found; retrying in 10 seconds.")
+                    await asyncio.sleep(10)
 
                 logger.debug("Slack user info updated.")
             except asyncio.CancelledError:

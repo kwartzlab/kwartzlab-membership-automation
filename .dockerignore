@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Logs & artifacts
+logs/
+*.log
+archives/
+slack_threads.db
+
+# Secrets / local config
+.env
+.env.*
+credentials.json
+token.json
+
+# Git / tooling
+.git/
+.gitignore
+pytest_cache/
+ruff_cache/

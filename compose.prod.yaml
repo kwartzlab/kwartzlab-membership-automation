@@ -1,6 +1,6 @@
 services:
   app:
-    build: .
+    image: ${IMAGE_NAME:-kwartzlab-membership-automation}:${IMAGE_TAG:-latest}
     env_file:
       - .env
     restart: unless-stopped

@@ -1,20 +1,33 @@
 # Kwartzlab Membership Automation
 
-Automates membership coordinator workflows for Kwartzlab. The app listens to Slack events, stores thread activity in SQLite, and supports email workflows plus optional thread archiving to Google Drive.
+Automates Kwartzlab membership coordinator workflows by syncing kOS membership submissions to Slack, capturing thread activity in SQLite, and sending templated Gmail replies. Threads can also be backed up and stored to Google Drive.
 
 ## Features
-- Slack event capture (posts, replies, edits, deletes, reactions) into SQLite.
-- Slack shortcuts for email workflows and thread archiving.
-- Gmail integration for templated membership emails.
-- Optional Google Drive upload for archived thread JSONL files.
+- Polls kOS form submissions and posts application summaries to a Slack channel.
+- Stores Slack thread events (posts, replies, edits, deletes, reactions) in SQLite, with archiving to JSONL locally & GDrive.
+- Message shortcuts and reaction flows to send templated emails via Gmail.
+
+## Planned Features
+- Google Workspace account management (creation, deletion, password reset)
+- kOS user status updating
+- Slack invites
+
+## Workflow
+1) The poller checks the kOS outbox every `POLL_INTERVAL_SECONDS` and posts new applications to `SLACK_CHANNEL_ID`.
+2) Slack Socket Mode listeners capture message and reaction events and persist them to SQLite.
+3) Coordinators can send email via:
+   - `email_applicant` message shortcut (opens a modal to choose email type and signature).
+   - Reactions `:white_check_mark:`, `:leftwards_arrow_with_hook:`, or `:no_entry_sign:` (with a confirmation prompt).
+4) Archiving writes a JSONL file to `archives/` and uploads to Drive when `ARCHIVE_GDRIVE_URL` is set.
 
 ## Requirements
-- Python 3.11+
-- Slack app tokens (bot + app token)
-- kOS API credentials
-- Gmail API credentials (`credentials.json`) and token cache (`token.json`)
+- Python 3.11+ (Docker image uses Python 3.12-slim).
+- Slack app with Socket Mode enabled.
+- kOS API base URL and API token.
+- Google OAuth client for Gmail/Drive (`credentials.json`).
+- A static bearer token for protected API routes (`API_TOKEN`).
 
-## Setup (Local)
+## Quick Start (Local)
 1) Create a virtual environment and install dependencies:
 ```bash
 python -m venv .venv
@@ -22,51 +35,95 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2) Ensure you have OAuth credentials for Gmail/Drive:
-   - Place your OAuth client in `credentials.json` at the repo root.
-   - The app will create/update `token.json` after the first auth flow.
+2) Place your Google OAuth client at `credentials.json` in the repo root.
 
-3) Configure environment variables (see `Environment` below). You can edit `.env` directly.
+3) Make a copy of `.env.example` and set the values (see `Configuration` below for more info)
 
-4) Run the app:
+4) Source the env: `source {your_env_file}`
+
+5) Run the app:
 ```bash
 python src/main.py
 ```
 
-## Setup (Slack App)
-You will need a Slack app with Socket Mode enabled:
-1) Create a Slack app and enable Socket Mode.
-2) Create a bot token and app-level token.
-3) Set the bot token as `SLACK_BOT_TOKEN` and the app-level token as `SLACK_APP_TOKEN`.
-4) Grant the app the permissions needed for reading messages/reactions and using shortcuts.
-5) Install the app to your workspace and set `SLACK_CHANNEL_ID`.
+The SQLite database (`slack_threads.db`) and tables are created on startup.
 
-## Environment
-Minimum required variables:
+## Configuration
+Required environment variables:
 - `KOS_API_BASE_URL`
 - `KOS_API_TOKEN`
+- `API_TOKEN` (bearer token for api endpoints)
 - `SLACK_BOT_TOKEN`
 - `SLACK_APP_TOKEN`
 - `SLACK_CHANNEL_ID`
 
-Optional variables:
-- `ARCHIVE_GDRIVE_URL` (Google Drive folder URL or folder ID)
-- `SQLITE_DB_PATH` (default: `slack_threads.db`)
+Optional environment variables:
+- `AUTHORIZED_USERGROUPS` (space-separated Slack usergroup IDs; default: `SDFB4PKGE`, the BoD slack id)
+- `KOS_API_TIMEOUT_SECONDS` (default: `10`)
+- `POLL_INTERVAL_SECONDS` (default: `30`)
+- `SQLITE_DB_PATH` (default: `slack_threads.db`, resolved relative to project root)
 - `CREDENTIALS_FILE` (default: `credentials.json`)
 - `TOKEN_FILE` (default: `token.json`)
-- `POLL_INTERVAL_SECONDS` (default: `30`)
-- `DEBUG` (`true`/`false`)
+- `ARCHIVE_GDRIVE_URL` (Drive folder URL or folder ID)
+- `ENVIRONMENT` (default: `development`)
+- `PROJECT_ROOT` (override project root for relative paths)
 - `PORT` (default: `8080`)
+- `DEBUG` (`true`/`false`)
+- `LOG_LEVEL` (default: `INFO`)
+- `LOG_FILE` (optional path to log file)
+- `LOG_FILE_LEVEL` (default: `DEBUG`)
+- `LOG_RETENTION_DAYS` (default: `7`)
 
-## Slack Shortcuts
-- `email_applicant`: choose an email template and send via Gmail.
-- `archive_thread`: write a JSONL archive to `archives/` and optionally upload to Drive.
+## Slack App Setup
+1) Enable **Socket Mode** and generate an app-level token (`SLACK_APP_TOKEN`).
+2) Create a bot token (`SLACK_BOT_TOKEN`) and install the app to your workspace.
+3) Enable **Interactivity & Shortcuts**.
+4) Create **Message Shortcuts** with the following callback IDs:
+   - `email_applicant`
+   - `archive_thread`
+5) Subscribe to bot events (at minimum):
+   - `app_mention`
+   - `message.channels` (or `message.groups` if the channel is private)
+   - `reaction_added`
+   - `reaction_removed`
+6) Add bot token scopes (minimum used in code):
+   - `app_mentions:read`
+   - `channels:history` (or `groups:history` for private channels)
+   - `reactions:read`
+   - `reactions:write`
+   - `chat:write`
+   - `users:read`
+   - `usergroups:read`
 
-## Google Drive Archiving
-Set `ARCHIVE_GDRIVE_URL` to a folder URL or folder ID. On first use, the app will open a local OAuth flow to grant Drive access and store credentials in `token.json`.
+Set `SLACK_CHANNEL_ID` to the target channel. All events are filtered to that channel.
+
+## Gmail + Drive OAuth
+The app uses Gmail and Drive scopes:
+- `gmail.send`
+- `drive.file`
+
+On first run it opens a local OAuth flow and writes `token.json`. If you run in Docker or a headless environment, complete the OAuth flow once locally and mount `credentials.json` and `token.json` into the container.
+
+## API Endpoints
+Protected routes require `Authorization: Bearer $API_TOKEN`.
+Currently the API Token is a static app token set in the env file.r
+
+Routes:
+- `GET /health`
+- `POST /process-form-outbox/{outbox_id}`
+- `POST /process-form-submission/{form_submission_id}`
+- `POST /email/{user_id}/acceptance`
+- `POST /email/{user_id}/return_visit`
+- `POST /email/{user_id}/rejection`
+
+Example:
+```bash
+curl -H "Authorization: Bearer $API_TOKEN" \
+  -X POST "http://localhost:8080/process-form-outbox/123"
+```
 
 ## Docker
-The repo includes a `dockerfile` and `compose.yaml`.
+The repo includes `dockerfile` and `compose.yaml`.
 
 ### Docker Compose
 `compose.yaml` attaches the container to the external network `kos-base_data-network`. Create it once if needed:
@@ -88,7 +145,10 @@ docker run --env-file .env --name kwartzlab-membership-automation \
 ```
 
 ### Credentials in Docker
-By default, `credentials.json` and `token.json` are baked into the image at build time. If you want the OAuth token to persist across rebuilds or be updated at runtime, mount them as volumes:
+By default, `token.json` and `credentials.json` are included when building the image, this is great for local development but won't be included in the production image.
+
+To better simulate the production env, mount `token.json` and `credentials.json` as host paths.
+
 ```bash
 docker run --env-file .env --name kwartzlab-membership-automation \
   --network kos-base_data-network \
@@ -98,10 +158,11 @@ docker run --env-file .env --name kwartzlab-membership-automation \
 ```
 
 ## Project Structure
-- `src/` app code
-- `archives/` local thread archives
+- `src/` application code
+- `archives/` JSONL thread archives
 - `credentials.json` Gmail/Drive OAuth client
 - `token.json` OAuth token cache
+- `slack_threads.db` SQLite data store (default)
 
 ## Notes
 - This project complements kOS but does not directly integrate with its database.

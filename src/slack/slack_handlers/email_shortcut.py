@@ -63,11 +63,11 @@ def register_email_shortcut_handler(app, cfg, runtime):
                     "type": "input",
                     "optional": True,
                     "block_id": "signature_name_block",
-                    "label": {"type": "plain_text", "text": "Signature name (optional)"},
+                    "label": {"type": "plain_text", "text": "Signature name"},
                     "element": {
                         "type": "plain_text_input",
                         "action_id": "signature_name_input",
-                        "placeholder": {"type": "plain_text", "text": "e.g., Alex"},
+                        "placeholder": {"type": "plain_text", "text": "Membership Team"},
                         "initial_value": signature_name,
                     },
                 },
@@ -75,7 +75,7 @@ def register_email_shortcut_handler(app, cfg, runtime):
                     "type": "input",
                     "optional": True,
                     "block_id": "signature_role_block",
-                    "label": {"type": "plain_text", "text": "Signature role (optional)"},
+                    "label": {"type": "plain_text", "text": "Signature role"},
                     "element": {
                         "type": "plain_text_input",
                         "action_id": "signature_role_input",

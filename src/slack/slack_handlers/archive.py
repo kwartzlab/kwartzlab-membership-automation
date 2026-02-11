@@ -15,21 +15,32 @@ def register_archive_shortcut_handler(app, cfg, runtime):
         await ack()
 
         user_id = body.get("user", {}).get("id")
-        if user_id not in runtime.cache_manager.authorized_users:
+        channel_id = body.get("channel", {}).get("id")
+        thread_ts = body.get("message", {}).get("thread_ts") or body.get("message", {}).get("ts")
+        if getattr(cfg, "slack_channel_id", None) and channel_id != cfg.slack_channel_id:
             send_ephemeral_message(
                 cfg=cfg,
-                channel=body.get("channel", {}).get("id"),
+                channel=channel_id,
                 user=user_id,
-                text="You are not authorized to archive threads.",
-                thread_ts=body.get("message", {}).get("thread_ts") or body.get("message", {}).get("ts"),
+                text="This action is only available in the membership channel.",
+                thread_ts=thread_ts,
             )
             return
 
-        thread_ts = body.get("message", {}).get("thread_ts") or body.get("message", {}).get("ts")
+        if user_id not in runtime.cache_manager.authorized_users:
+            send_ephemeral_message(
+                cfg=cfg,
+                channel=channel_id,
+                user=user_id,
+                text="You are not authorized to archive threads.",
+                thread_ts=thread_ts,
+            )
+            return
+
         if not thread_ts:
             send_ephemeral_message(
                 cfg=cfg,
-                channel=body.get("channel", {}).get("id"),
+                channel=channel_id,
                 user=user_id,
                 text="Could not determine the thread to archive.",
             )
@@ -69,7 +80,7 @@ def register_archive_shortcut_handler(app, cfg, runtime):
             archive_message = f"{archive_message} Uploaded to Drive: {drive_link}"
         send_ephemeral_message(
             cfg=cfg,
-            channel=body.get("channel", {}).get("id"),
+            channel=channel_id,
             user=user_id,
             text=archive_message,
             thread_ts=thread_ts,

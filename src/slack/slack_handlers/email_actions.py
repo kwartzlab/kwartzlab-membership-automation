@@ -33,6 +33,15 @@ def register_email_actions(app, cfg, runtime):
 
             if not channel_id or not thread_ts or not actor_user_id or not user_id:
                 raise ValueError("Missing modal metadata.")
+            if getattr(cfg, "slack_channel_id", None) and channel_id != cfg.slack_channel_id:
+                send_ephemeral_message(
+                    cfg=cfg,
+                    channel=channel_id,
+                    user=user_id,
+                    thread_ts=thread_ts,
+                    text="This action is only available in the membership channel.",
+                )
+                return
             if user_id != actor_user_id:
                 send_ephemeral_message(
                     cfg=cfg,
@@ -106,6 +115,13 @@ def register_email_actions(app, cfg, runtime):
             user_id = body.get("user", {}).get("id")
             if not channel_id or not thread_ts or not user_id:
                 raise ValueError("Missing channel_id, thread_ts, or user_id.")
+            if getattr(cfg, "slack_channel_id", None) and channel_id != cfg.slack_channel_id:
+                await respond(
+                    replace_original=True,
+                    text="This action is only available in the membership channel.",
+                    blocks=[],
+                )
+                return
 
             with runtime.slack_db_engine.connect() as conn:
                 applicant_user_id = db.get_applicant_user_id_by_thread_ts(conn, thread_ts)
@@ -179,6 +195,9 @@ def register_email_actions(app, cfg, runtime):
 
             if not all([choice, applicant_user_id, channel_id, thread_ts, actor_user_id, user_id]):
                 raise ValueError("Missing confirmation details.")
+            if getattr(cfg, "slack_channel_id", None) and channel_id != cfg.slack_channel_id:
+                await respond(replace_original=True, text="This action is only available in the membership channel.", blocks=[])
+                return
             if user_id != actor_user_id:
                 await respond(replace_original=True, text="This confirmation isn’t for you.", blocks=[])
                 return

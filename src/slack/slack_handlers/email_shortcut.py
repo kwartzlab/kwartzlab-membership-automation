@@ -14,6 +14,16 @@ def register_email_shortcut_handler(app, cfg, runtime):
         message_ts = body["message"]["ts"]
         thread_ts = body["message"].get("thread_ts", message_ts)
 
+        if getattr(cfg, "slack_channel_id", None) and channel != cfg.slack_channel_id:
+            send_ephemeral_message(
+                cfg=cfg,
+                channel=channel,
+                user=user,
+                text="This action is only available in the membership channel.",
+                thread_ts=thread_ts,
+            )
+            return
+
         if user not in runtime.cache_manager.authorized_users:
             send_ephemeral_message(
                 cfg=cfg,

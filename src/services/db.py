@@ -12,8 +12,8 @@ from templates.sql import (
     GET_FORM_SUBMISSION_ID_BY_THREAD_TS_SQL,
     GET_MODAL_BLOCKS_PAYLOAD_SQL,
     GET_THREAD_EVENTS_SQL,
-    GET_THREAD_TS_SQL,
     GET_THREAD_TS_BY_COMPACT_SQL,
+    GET_THREAD_TS_SQL,
     HAS_EMAIL_SENT_SQL,
     INSERT_AUDIT_LOG_SQL,
     INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL,
@@ -47,10 +47,7 @@ def _create_slack_tables(conn) -> None:
 
 
 def _ensure_slack_thread_event_compact_ts(conn) -> None:
-    columns = {
-        row[1]
-        for row in conn.execute(text("PRAGMA table_info(slack_thread_events)")).fetchall()
-    }
+    columns = {row[1] for row in conn.execute(text("PRAGMA table_info(slack_thread_events)")).fetchall()}
     if "thread_ts_compact" not in columns:
         conn.execute(text("ALTER TABLE slack_thread_events ADD COLUMN thread_ts_compact TEXT"))
 

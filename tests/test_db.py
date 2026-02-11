@@ -19,3 +19,4 @@ def test_get_thread_ts_and_applicant(slack_db_engine):
 
         assert db.get_thread_ts(conn, "111.222") == "111.222"
         assert db.get_applicant_user_id_by_thread_ts(conn, "111.222") == "999"
+        assert db.get_thread_ts_by_compact(conn, "111222") == "111.222"

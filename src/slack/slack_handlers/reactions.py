@@ -16,9 +16,9 @@ EMAIL_REACTION_CHOICES = {
 }
 
 EMAIL_PUBLIC_MESSAGES = {
-    "acceptance": "This application has been approved!",
-    "return_visit": "Does anyone have any more feedback for this applicant? They have been asked to return.",
-    "rejection": "This application has been rejected.",
+    "acceptance": "{name} has been approved.",
+    "return_visit": "Does anyone have any more feedback for {name}? They have been asked to return.",
+    "rejection": "{name} has been rejected.",
 }
 
 EMAIL_EPHEMERAL_LABELS = {
@@ -26,6 +26,42 @@ EMAIL_EPHEMERAL_LABELS = {
     "return_visit": "Return",
     "rejection": "Rejection",
 }
+
+
+def _get_name_part(user: dict | None, keys: list[str]) -> str:
+    if not user:
+        return ""
+    for key in keys:
+        value = user.get(key)
+        if value:
+            value = str(value).strip()
+            if value:
+                return value
+    return ""
+
+
+def _format_applicant_name(user: dict | None) -> str:
+    first = _get_name_part(
+        user,
+        [
+            "first_preferred",
+            "preferred_first_name",
+            "first_name",
+            "first",
+        ],
+    )
+    last = _get_name_part(
+        user,
+        [
+            "last_preferred",
+            "preferred_last_name",
+            "last_name",
+            "last",
+        ],
+    )
+    if first and last:
+        return f"{first} {last}"
+    return first or last or "Applicant"
 
 
 async def _send_applicant_email(
@@ -107,9 +143,7 @@ async def _send_applicant_email(
     post_message_reply(
         cfg=cfg,
         channel=channel_id,
-        thread_ts=thread_ts,
-        text=EMAIL_PUBLIC_MESSAGES[choice],
-        reply_broadcast=(choice == "return_visit"),
+        text=EMAIL_PUBLIC_MESSAGES[choice].format(name=_format_applicant_name(user)),
     )
     return True
 

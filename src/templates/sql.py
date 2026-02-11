@@ -6,6 +6,7 @@ CREATE_SLACK_THREAD_EVENTS_TABLE_SQL = text("""
     CREATE TABLE IF NOT EXISTS slack_thread_events (
         id INTEGER PRIMARY KEY,
         thread_ts TEXT,
+        thread_ts_compact TEXT,
         form_submission_id TEXT,
         user_id TEXT,
         user_name TEXT,
@@ -45,6 +46,7 @@ CREATE_AUDIT_LOG_TABLE_SQL = text("""
 INSERT_SLACK_EVENT_SQL = text("""
     INSERT INTO slack_thread_events(
         thread_ts,
+        thread_ts_compact,
         form_submission_id,
         user_id,
         user_name,
@@ -56,8 +58,22 @@ INSERT_SLACK_EVENT_SQL = text("""
         applicant_user_id
     )
     VALUES
-        (:thread_ts, :form_submission_id, :user_id, :user_name, :event, :message,
-        :parent_message, :raw_response, :timestamp, :applicant_user_id)
+        (
+            :thread_ts,
+            CASE
+                WHEN :thread_ts IS NOT NULL THEN REPLACE(:thread_ts, '.', '')
+                ELSE NULL
+            END,
+            :form_submission_id,
+            :user_id,
+            :user_name,
+            :event,
+            :message,
+            :parent_message,
+            :raw_response,
+            :timestamp,
+            :applicant_user_id
+        )
 """)
 INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL = text("""
     INSERT INTO interview_answers_slack_modal (applicant_user_id, thread_ts, form_submission_id, slack_modal_blocks)
@@ -68,6 +84,13 @@ GET_THREAD_TS_SQL = text("""
     SELECT thread_ts
     FROM slack_thread_events
     WHERE timestamp = :ts
+    LIMIT 1
+""")
+
+GET_THREAD_TS_BY_COMPACT_SQL = text("""
+    SELECT thread_ts
+    FROM slack_thread_events
+    WHERE thread_ts_compact = :thread_ts_compact
     LIMIT 1
 """)
 

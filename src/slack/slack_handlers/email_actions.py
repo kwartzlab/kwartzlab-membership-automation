@@ -196,7 +196,9 @@ def register_email_actions(app, cfg, runtime):
             if not all([choice, applicant_user_id, channel_id, thread_ts, actor_user_id, user_id]):
                 raise ValueError("Missing confirmation details.")
             if getattr(cfg, "slack_channel_id", None) and channel_id != cfg.slack_channel_id:
-                await respond(replace_original=True, text="This action is only available in the membership channel.", blocks=[])
+                await respond(
+                    replace_original=True, text="This action is only available in the membership channel.", blocks=[]
+                )
                 return
             if user_id != actor_user_id:
                 await respond(replace_original=True, text="This confirmation isn’t for you.", blocks=[])

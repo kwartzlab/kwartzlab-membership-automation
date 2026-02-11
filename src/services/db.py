@@ -1,7 +1,7 @@
 import json
 import logging
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 from templates.sql import (
@@ -13,6 +13,7 @@ from templates.sql import (
     GET_MODAL_BLOCKS_PAYLOAD_SQL,
     GET_THREAD_EVENTS_SQL,
     GET_THREAD_TS_SQL,
+    GET_THREAD_TS_BY_COMPACT_SQL,
     HAS_EMAIL_SENT_SQL,
     INSERT_AUDIT_LOG_SQL,
     INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL,
@@ -32,9 +33,11 @@ def create_slack_tables(conn_or_engine):
     if isinstance(conn_or_engine, Engine):
         with conn_or_engine.begin() as conn:
             _create_slack_tables(conn)
+            _ensure_slack_thread_event_compact_ts(conn)
         return
 
     _create_slack_tables(conn_or_engine)
+    _ensure_slack_thread_event_compact_ts(conn_or_engine)
 
 
 def _create_slack_tables(conn) -> None:
@@ -43,8 +46,44 @@ def _create_slack_tables(conn) -> None:
     conn.execute(CREATE_AUDIT_LOG_TABLE_SQL)
 
 
+def _ensure_slack_thread_event_compact_ts(conn) -> None:
+    columns = {
+        row[1]
+        for row in conn.execute(text("PRAGMA table_info(slack_thread_events)")).fetchall()
+    }
+    if "thread_ts_compact" not in columns:
+        conn.execute(text("ALTER TABLE slack_thread_events ADD COLUMN thread_ts_compact TEXT"))
+
+    conn.execute(
+        text(
+            """
+            UPDATE slack_thread_events
+            SET thread_ts_compact = REPLACE(thread_ts, '.', '')
+            WHERE thread_ts IS NOT NULL
+              AND (thread_ts_compact IS NULL OR thread_ts_compact = '')
+            """
+        )
+    )
+    conn.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_slack_thread_events_thread_ts_compact
+            ON slack_thread_events (thread_ts_compact)
+            """
+        )
+    )
+
+
 def get_thread_ts(conn, ts: str) -> str | None:
     result = conn.execute(GET_THREAD_TS_SQL, {"ts": ts}).fetchone()
+    return result[0] if result else None
+
+
+def get_thread_ts_by_compact(conn, thread_ts_compact: str) -> str | None:
+    result = conn.execute(
+        GET_THREAD_TS_BY_COMPACT_SQL,
+        {"thread_ts_compact": thread_ts_compact},
+    ).fetchone()
     return result[0] if result else None
 
 

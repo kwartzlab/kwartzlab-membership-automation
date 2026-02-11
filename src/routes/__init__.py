@@ -9,6 +9,7 @@ from jobs.poller import poller_loop
 from routes.email import router as email_router
 from routes.health import router as health_router
 from routes.outbox import router as outbox_router
+from routes.archive import router as archive_router
 from services import Services
 from services.auth import verify_api_token
 from slack.runtime import build_slack_runtime
@@ -62,5 +63,6 @@ def make_app(services: Services):
     app.include_router(health_router)
     app.include_router(outbox_router, dependencies=[Depends(verify_api_token)])
     app.include_router(email_router, dependencies=[Depends(verify_api_token)])
-
+    app.include_router(archive_router, dependencies=[Depends(verify_api_token)])
+    
     return app

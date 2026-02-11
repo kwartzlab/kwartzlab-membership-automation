@@ -10,5 +10,5 @@ services:
       - ./logs:/app/logs
       - ./credentials.json:/app/credentials.json
       - ./token.json:/app/token.json
-      - ./database:/app/database/slack_threads.db
+      - ./database:/app/database/
       - ./archives:/app/archives

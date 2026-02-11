@@ -48,6 +48,7 @@ def cfg(tmp_path, slack_db_engine):
         slack_app_token="xapp-test",
         slack_channel_id="C123",
         authorized_usergroups=[],
+        authorized_users=[],
         credentials_file=str(tmp_path / "credentials.json"),
         token_file=str(tmp_path / "token.json"),
         poll_interval_seconds=1,

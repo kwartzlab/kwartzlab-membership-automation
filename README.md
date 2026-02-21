@@ -43,6 +43,37 @@ python src/main.py
 
 The SQLite database (`slack_threads.db`) and tables are created on startup.
 
+### Standalone Workspace Onboarding App
+For interactive Google Workspace account onboarding from kOS users:
+```bash
+python src/workspace_onboarding_app.py
+```
+
+This app:
+- prompts for a kOS `user_id`
+- fetches user details from kOS
+- drafts and displays account details + onboarding email for confirmation
+- creates the Google Workspace user via Admin Directory API
+- optionally sends the drafted email via Gmail API
+
+Flags:
+- `--dry-run` skips both account creation and email sending calls
+- `--dry-run-account` skips only Google Admin user creation
+- `--dry-run-email` skips only Gmail send
+
+### Standalone Workspace Membership Audit
+For read-only auditing of existing Workspace accounts/group memberships for kOS users:
+```bash
+python src/workspace_membership_audit.py
+```
+
+This app:
+- loads users from kOS
+- computes expected `first.last@{domain}.ca`
+- checks if the Workspace account exists against expected email, as checking secondary email against kOS email.
+- checks membership in configured Workspace groups
+- reports users missing account and/or group memberships
+
 ## Configuration
 Required environment variables:
 - `KOS_API_BASE_URL`
@@ -56,10 +87,14 @@ Optional environment variables:
 - `AUTHORIZED_USERGROUPS` (space-separated Slack usergroup IDs; default: `SDFB4PKGE`, the BoD slack id)
 - `AUTHORIZED_USERS` (space-separated Slack IDs, no default)
 - `KOS_API_TIMEOUT_SECONDS` (default: `10`)
+- `KOS_USERS_LIST_PATH` (default: `/api/users`; endpoint used by membership audit script)
 - `POLL_INTERVAL_SECONDS` (default: `30`)
 - `SQLITE_DB_PATH` (default: `slack_threads.db`, resolved relative to project root)
 - `CREDENTIALS_FILE` (default: `credentials.json`)
 - `TOKEN_FILE` (default: `token.json`)
+- `GOOGLE_ADMIN_TOKEN_FILE` (default: `token_admin.json`; OAuth token used for Google Admin Directory actions)
+- `GOOGLE_WORKSPACE_DOMAIN` (e.g. `kwartzlab`; used when generating workspace emails like `first.last@domain.ca`)
+- `GOOGLE_WORKSPACE_GROUPS` (optional; space/comma-separated group emails to auto-add new users after account creation)
 - `ARCHIVE_GDRIVE_URL` (Drive folder URL or folder ID)
 - `ENVIRONMENT` (default: `development`)
 - `PROJECT_ROOT` (override project root for relative paths)

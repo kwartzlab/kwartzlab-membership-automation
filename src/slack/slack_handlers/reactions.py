@@ -3,6 +3,7 @@ import json
 import logging
 
 import services.db as db
+import services.kos_api as kos_api
 import services.mailer as mailer
 from services.slack.slack_web import post_message_reply, send_ephemeral_message
 
@@ -27,41 +28,6 @@ EMAIL_EPHEMERAL_LABELS = {
     "rejection": "Rejection",
 }
 
-
-def _get_name_part(user: dict | None, keys: list[str]) -> str:
-    if not user:
-        return ""
-    for key in keys:
-        value = user.get(key)
-        if value:
-            value = str(value).strip()
-            if value:
-                return value
-    return ""
-
-
-def _format_applicant_name(user: dict | None) -> str:
-    first = _get_name_part(
-        user,
-        [
-            "first_preferred",
-            "preferred_first_name",
-            "first_name",
-            "first",
-        ],
-    )
-    last = _get_name_part(
-        user,
-        [
-            "last_preferred",
-            "preferred_last_name",
-            "last_name",
-            "last",
-        ],
-    )
-    if first and last:
-        return f"{first} {last}"
-    return first or last or "Applicant"
 
 
 async def _send_applicant_email(
@@ -143,7 +109,7 @@ async def _send_applicant_email(
     post_message_reply(
         cfg=cfg,
         channel=channel_id,
-        text=EMAIL_PUBLIC_MESSAGES[choice].format(name=_format_applicant_name(user)),
+        text=EMAIL_PUBLIC_MESSAGES[choice].format(name=kos_api.get_user_full_name(user)),
     )
     return True
 

@@ -27,7 +27,6 @@ class WorkspaceAuditConfig:
     kos_api_base_url: str
     kos_api_token: str
     kos_api_timeout_seconds: int
-    kos_users_list_path: str
     credentials_file: str
     google_admin_token_file: str
     google_workspace_domain: str
@@ -41,7 +40,6 @@ def load_workspace_audit_config() -> WorkspaceAuditConfig:
         kos_api_base_url=getenv("KOS_API_BASE_URL", required=True),
         kos_api_token=getenv("KOS_API_TOKEN", required=True),
         kos_api_timeout_seconds=int(getenv("KOS_API_TIMEOUT_SECONDS", "10")),
-        kos_users_list_path=getenv("KOS_USERS_LIST_PATH", "/api/users"),
         credentials_file=getenv("CREDENTIALS_FILE", "credentials.json"),
         google_admin_token_file=getenv("GOOGLE_ADMIN_TOKEN_FILE", "token_admin.json"),
         google_workspace_domain=getenv("GOOGLE_WORKSPACE_DOMAIN", required=True),
@@ -122,7 +120,7 @@ def main() -> None:
         token_file=cfg.google_admin_token_file,
     )
 
-    users = kos_client.list_users(path=cfg.kos_users_list_path)
+    users = kos_client.list_users()
     print(f"Loaded {len(users)} users from kOS.")
     if not cfg.google_workspace_groups:
         print("No GOOGLE_WORKSPACE_GROUPS configured; only existence checks will be performed.")

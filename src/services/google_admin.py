@@ -208,12 +208,16 @@ def list_workspace_user_emails(
     clean_domain = _normalize_domain(domain) if domain else None
 
     while True:
-        response = admin_directory_service.users().list(
-            customer=customer,
-            maxResults=max_results,
-            orderBy="email",
-            pageToken=page_token,
-        ).execute()
+        response = (
+            admin_directory_service.users()
+            .list(
+                customer=customer,
+                maxResults=max_results,
+                orderBy="email",
+                pageToken=page_token,
+            )
+            .execute()
+        )
         users = response.get("users", [])
         for user in users:
             email = str(user.get("primaryEmail") or "").strip().lower()
@@ -241,12 +245,16 @@ def list_group_member_emails(
     page_token: str | None = None
 
     while True:
-        response = admin_directory_service.members().list(
-            groupKey=group_key,
-            maxResults=max_results,
-            pageToken=page_token,
-            includeDerivedMembership=include_derived_membership,
-        ).execute()
+        response = (
+            admin_directory_service.members()
+            .list(
+                groupKey=group_key,
+                maxResults=max_results,
+                pageToken=page_token,
+                includeDerivedMembership=include_derived_membership,
+            )
+            .execute()
+        )
         members = response.get("members", [])
         for member in members:
             email = str(member.get("email") or "").strip().lower()
@@ -272,12 +280,16 @@ def list_workspace_recovery_email_index(
     clean_domain = _normalize_domain(domain) if domain else None
 
     while True:
-        response = admin_directory_service.users().list(
-            customer=customer,
-            maxResults=max_results,
-            orderBy="email",
-            pageToken=page_token,
-        ).execute()
+        response = (
+            admin_directory_service.users()
+            .list(
+                customer=customer,
+                maxResults=max_results,
+                orderBy="email",
+                pageToken=page_token,
+            )
+            .execute()
+        )
         users = response.get("users", [])
         for user in users:
             primary_email = str(user.get("primaryEmail") or "").strip().lower()

@@ -29,7 +29,6 @@ EMAIL_EPHEMERAL_LABELS = {
 }
 
 
-
 async def _send_applicant_email(
     *,
     cfg,

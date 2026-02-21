@@ -34,12 +34,6 @@ def test_split_missing_group_results():
 
 
 def test_normalize_email_for_match_removes_special_chars():
-    assert (
-        _normalize_email_for_match("First.Last-Name@kwartzlab.ca", "kwartzlab")
-        == "firstlastname@kwartzlab.ca"
-    )
-    assert (
-        _normalize_email_for_match("first_lastname@kwartzlab.ca", "kwartzlab.ca")
-        == "firstlastname@kwartzlab.ca"
-    )
+    assert _normalize_email_for_match("First.Last-Name@kwartzlab.ca", "kwartzlab") == "firstlastname@kwartzlab.ca"
+    assert _normalize_email_for_match("first_lastname@kwartzlab.ca", "kwartzlab.ca") == "firstlastname@kwartzlab.ca"
     assert _normalize_email_for_match("first.lastname@example.com", "kwartzlab") == ""

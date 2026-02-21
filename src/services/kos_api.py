@@ -64,9 +64,9 @@ class KosApiClient:
     def get_user(self, user_id: int) -> Optional[dict]:
         return self._get_json(f"/api/users/{user_id}")
 
-    def list_users(self, path: str = "/api/users") -> list[dict]:
+    def list_users(self) -> list[dict]:
         users: list[dict] = []
-        next_path: Optional[str] = path
+        next_path: Optional[str] = "/api/users"
         while next_path:
             payload = self._request_json("get", next_path)
             page_users, next_path = _extract_users_page(payload)

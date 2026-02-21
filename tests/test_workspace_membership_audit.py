@@ -13,7 +13,6 @@ def test_load_workspace_audit_config_parses_groups(monkeypatch):
     monkeypatch.setenv("GOOGLE_WORKSPACE_GROUPS", "members@kwartzlab.ca,announce@kwartzlab.ca")
     cfg = load_workspace_audit_config()
     assert cfg.google_workspace_groups == ["members@kwartzlab.ca", "announce@kwartzlab.ca"]
-    assert cfg.kos_users_list_path == "/api/users"
 
 
 def test_is_active_user():

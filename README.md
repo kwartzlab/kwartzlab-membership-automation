@@ -87,7 +87,6 @@ Optional environment variables:
 - `AUTHORIZED_USERGROUPS` (space-separated Slack usergroup IDs; default: `SDFB4PKGE`, the BoD slack id)
 - `AUTHORIZED_USERS` (space-separated Slack IDs, no default)
 - `KOS_API_TIMEOUT_SECONDS` (default: `10`)
-- `KOS_USERS_LIST_PATH` (default: `/api/users`; endpoint used by membership audit script)
 - `POLL_INTERVAL_SECONDS` (default: `30`)
 - `SQLITE_DB_PATH` (default: `slack_threads.db`, resolved relative to project root)
 - `CREDENTIALS_FILE` (default: `credentials.json`)

@@ -21,7 +21,7 @@ def test_list_users_handles_paginated_data(monkeypatch):
 
     monkeypatch.setattr(client, "_request", fake_request)
 
-    users = client.list_users("/api/users")
+    users = client.list_users()
     assert [user["id"] for user in users] == [1, 2, 3]
 
 

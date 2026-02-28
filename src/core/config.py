@@ -7,7 +7,7 @@ from typing import Optional
 def getenv(name: str, default: Optional[str] = None, *, required: bool = False) -> str | None:
     value = os.getenv(name, default)
     if required and value is None:
-``        raise RuntimeError(f"Missing required environment variable: {name}")
+        raise RuntimeError(f"Missing required environment variable: {name}")
     return value
 
 

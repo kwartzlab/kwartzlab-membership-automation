@@ -33,6 +33,15 @@ class WorkspaceAuditConfig:
     google_workspace_groups: list[str]
 
 
+@dataclass(frozen=True)
+class WorkspaceDirectoryData:
+    admin_service: object
+    workspace_users: set[str]
+    normalized_workspace_index: dict[str, set[str]]
+    recovery_index: dict[str, set[str]]
+    group_members: dict[str, set[str]]
+
+
 def load_workspace_audit_config() -> WorkspaceAuditConfig:
     groups_raw = getenv("GOOGLE_WORKSPACE_GROUPS", "") or ""
     groups = [item.strip() for item in groups_raw.replace(",", " ").split() if item.strip()]
@@ -164,40 +173,46 @@ def _resolve_workspace_match(
     return result
 
 
-def main() -> None:
-    configure_logging()
-    cfg = load_workspace_audit_config()
-
+def _load_kos_user_data(cfg: WorkspaceAuditConfig) -> list[dict]:
     kos_client = kos_api.KosApiClient(
         base_url=cfg.kos_api_base_url,
         token=cfg.kos_api_token,
         timeout_seconds=cfg.kos_api_timeout_seconds,
     )
+    users = kos_client.list_users()
+    print(f"Loaded {len(users)} users from kOS.")
+    return users
+
+
+def _build_normalized_workspace_index(
+    workspace_users: set[str],
+    workspace_domain: str,
+) -> dict[str, set[str]]:
+    normalized_workspace_index: dict[str, set[str]] = {}
+    for workspace_email in workspace_users:
+        normalized = _normalize_email_for_match(workspace_email, workspace_domain)
+        if normalized:
+            normalized_workspace_index.setdefault(normalized, set()).add(workspace_email)
+    return normalized_workspace_index
+
+
+def _load_workspace_directory_data(cfg: WorkspaceAuditConfig) -> WorkspaceDirectoryData:
     admin_service = get_admin_directory_service(
         credentials_file=cfg.credentials_file,
         token_file=cfg.google_admin_token_file,
     )
-
-    users = kos_client.list_users()
-    print(f"Loaded {len(users)} users from kOS.")
-    if not cfg.google_workspace_groups:
-        print("No GOOGLE_WORKSPACE_GROUPS configured; only existence checks will be performed.")
-
-    active_users = [user for user in users if _is_active_user(user)]
-    non_active_users = [user for user in users if not _is_active_user(user)]
-    print(f"Active/hiatus users to audit: {len(active_users)}")
-    print(f"Non-active users to audit for stale Workspace accounts: {len(non_active_users)}")
 
     workspace_users = list_workspace_user_emails(
         admin_service,
         domain=cfg.google_workspace_domain,
     )
     print(f"Loaded {len(workspace_users)} workspace users from Google Admin.")
-    normalized_workspace_index: dict[str, set[str]] = {}
-    for workspace_email in workspace_users:
-        normalized = _normalize_email_for_match(workspace_email, cfg.google_workspace_domain)
-        if normalized:
-            normalized_workspace_index.setdefault(normalized, set()).add(workspace_email)
+
+    normalized_workspace_index = _build_normalized_workspace_index(
+        workspace_users,
+        cfg.google_workspace_domain,
+    )
+
     recovery_index = list_workspace_recovery_email_index(
         admin_service,
         domain=cfg.google_workspace_domain,
@@ -210,26 +225,52 @@ def main() -> None:
         group_members[group] = members
         print(f"Loaded {len(members)} members for group {group}.")
 
+    return WorkspaceDirectoryData(
+        admin_service=admin_service,
+        workspace_users=workspace_users,
+        normalized_workspace_index=normalized_workspace_index,
+        recovery_index=recovery_index,
+        group_members=group_members,
+    )
+
+
+def _partition_users_by_status(users: list[dict]) -> tuple[list[dict], list[dict]]:
+    active_users = [user for user in users if _is_active_user(user)]
+    non_active_users = [user for user in users if not _is_active_user(user)]
+    return active_users, non_active_users
+
+
+def _audit_active_users(
+    active_users: list[dict],
+    *,
+    cfg: WorkspaceAuditConfig,
+    directory_data: WorkspaceDirectoryData,
+) -> list[dict]:
     results: list[dict] = []
+
     for user in active_users:
         workspace_match = _resolve_workspace_match(
             user,
             workspace_domain=cfg.google_workspace_domain,
-            workspace_users=workspace_users,
-            normalized_workspace_index=normalized_workspace_index,
-            recovery_index=recovery_index,
+            workspace_users=directory_data.workspace_users,
+            normalized_workspace_index=directory_data.normalized_workspace_index,
+            recovery_index=directory_data.recovery_index,
         )
 
         missing_groups: list[str] = []
         if workspace_match["workspace_exists"]:
+            resolved_workspace_email = str(workspace_match["workspace_email"] or "")
             for group in cfg.google_workspace_groups:
-                resolved_workspace_email = str(workspace_match["workspace_email"] or "")
-                if resolved_workspace_email.lower() not in group_members[group]:
+                if resolved_workspace_email.lower() not in directory_data.group_members[group]:
                     missing_groups.append(group)
             if missing_groups:
                 verified_missing: list[str] = []
                 for group in missing_groups:
-                    if not has_member_in_group(admin_service, group_key=group, user_email=resolved_workspace_email):
+                    if not has_member_in_group(
+                        directory_data.admin_service,
+                        group_key=group,
+                        user_email=resolved_workspace_email,
+                    ):
                         verified_missing.append(group)
                 missing_groups = verified_missing
         else:
@@ -247,14 +288,24 @@ def main() -> None:
             result["error"] = workspace_match["error"]
         results.append(result)
 
+    return results
+
+
+def _audit_non_active_users(
+    non_active_users: list[dict],
+    *,
+    cfg: WorkspaceAuditConfig,
+    directory_data: WorkspaceDirectoryData,
+) -> list[dict]:
     non_active_workspace_rows: list[dict] = []
+
     for user in non_active_users:
         workspace_match = _resolve_workspace_match(
             user,
             workspace_domain=cfg.google_workspace_domain,
-            workspace_users=workspace_users,
-            normalized_workspace_index=normalized_workspace_index,
-            recovery_index=recovery_index,
+            workspace_users=directory_data.workspace_users,
+            normalized_workspace_index=directory_data.normalized_workspace_index,
+            recovery_index=directory_data.recovery_index,
         )
         if not workspace_match["workspace_exists"]:
             continue
@@ -271,11 +322,21 @@ def main() -> None:
             row["error"] = workspace_match["error"]
         non_active_workspace_rows.append(row)
 
+    return non_active_workspace_rows
+
+
+def _print_workspace_audit_report(
+    *,
+    results: list[dict],
+    non_active_users_count: int,
+    non_active_workspace_rows: list[dict],
+    configured_groups: list[str],
+) -> tuple[list[dict], list[dict]]:
     missing_email = [row for row in results if not row.get("workspace_exists")]
     missing_group_membership = [row for row in results if row.get("workspace_exists") and row.get("missing_groups")]
     missing_all_groups, missing_some_groups = _split_missing_group_results(
         missing_group_membership,
-        cfg.google_workspace_groups,
+        configured_groups,
     )
     fully_ok = [row for row in results if row.get("in_all_groups")]
 
@@ -284,7 +345,7 @@ def main() -> None:
         json.dumps(
             {
                 "total_users_checked": len(results),
-                "total_non_active_users_checked_for_workspace_access": len(non_active_users),
+                "total_non_active_users_checked_for_workspace_access": non_active_users_count,
                 "non_active_users_with_workspace_email": len(non_active_workspace_rows),
                 "workspace_email_missing": len(missing_email),
                 "missing_group_membership": len(missing_group_membership),
@@ -304,21 +365,14 @@ def main() -> None:
     print("\nUsers missing at least one group:")
     print(json.dumps(missing_group_membership, indent=2, ensure_ascii=True))
 
-    if not cfg.google_workspace_groups:
-        return
+    return missing_all_groups, missing_some_groups
 
-    if not missing_all_groups:
-        print("\nNo users are missing all configured groups; no remediation prompt needed.")
-        return
 
-    print("\nUsers missing all configured groups (eligible for remediation):")
-    print(json.dumps(missing_all_groups, indent=2, ensure_ascii=True))
-    if missing_some_groups:
-        print(
-            f"Skipping {len(missing_some_groups)} users with partial missing groups "
-            "(treated as intentional per your policy)."
-        )
-
+def _run_group_remediation(
+    *,
+    admin_service: object,
+    missing_all_groups: list[dict],
+) -> None:
     if not _yes_no_prompt("Add eligible users to their missing groups now?", default=False):
         print("Skipped group remediation.")
         return
@@ -381,6 +435,57 @@ def main() -> None:
 
     print("\nGroup remediation results:")
     print(json.dumps(remediation_results, indent=2, ensure_ascii=True))
+
+
+def main() -> None:
+    configure_logging()
+    cfg = load_workspace_audit_config()
+    users = _load_kos_user_data(cfg)
+    if not cfg.google_workspace_groups:
+        print("No GOOGLE_WORKSPACE_GROUPS configured; only existence checks will be performed.")
+
+    active_users, non_active_users = _partition_users_by_status(users)
+    print(f"Active/hiatus users to audit: {len(active_users)}")
+    print(f"Non-active users to audit for stale Workspace accounts: {len(non_active_users)}")
+
+    directory_data = _load_workspace_directory_data(cfg)
+    results = _audit_active_users(
+        active_users,
+        cfg=cfg,
+        directory_data=directory_data,
+    )
+
+    non_active_workspace_rows = _audit_non_active_users(
+        non_active_users,
+        cfg=cfg,
+        directory_data=directory_data,
+    )
+    missing_all_groups, missing_some_groups = _print_workspace_audit_report(
+        results=results,
+        non_active_users_count=len(non_active_users),
+        non_active_workspace_rows=non_active_workspace_rows,
+        configured_groups=cfg.google_workspace_groups,
+    )
+
+    if not cfg.google_workspace_groups:
+        return
+
+    if not missing_all_groups:
+        print("\nNo users are missing all configured groups; no remediation prompt needed.")
+        return
+
+    print("\nUsers missing all configured groups (eligible for remediation):")
+    print(json.dumps(missing_all_groups, indent=2, ensure_ascii=True))
+    if missing_some_groups:
+        print(
+            f"Skipping {len(missing_some_groups)} users with partial missing groups "
+            "(treated as intentional per your policy)."
+        )
+
+    _run_group_remediation(
+        admin_service=directory_data.admin_service,
+        missing_all_groups=missing_all_groups,
+    )
 
 
 if __name__ == "__main__":

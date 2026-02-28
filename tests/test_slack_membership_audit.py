@@ -8,8 +8,8 @@ from slack_membership_audit import (
     _email_variants_for_matching,
     _is_human_slack_user,
     _is_kos_active_or_hiatus,
-    _normalize_email,
     _map_slack_user_to_kos,
+    _normalize_email,
     _normalize_name,
 )
 

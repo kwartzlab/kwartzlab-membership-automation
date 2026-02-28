@@ -63,7 +63,8 @@ def load_slack_audit_config() -> SlackAuditConfig:
         kos_api_timeout_seconds=int(getenv("KOS_API_TIMEOUT_SECONDS", "10")),
         slack_bot_token=getenv("SLACK_BOT_TOKEN", required=True),
         include_deleted_slack_users=include_deleted_raw in {"1", "true", "yes", "y"},
-        overrides_file=getenv("SLACK_AUDIT_OVERRIDES_FILE", "slack_audit_overrides.json") or "slack_audit_overrides.json",
+        overrides_file=getenv("SLACK_AUDIT_OVERRIDES_FILE", "slack_audit_overrides.json")
+        or "slack_audit_overrides.json",
     )
 
 
@@ -80,9 +81,7 @@ def load_slack_audit_overrides(path: str) -> SlackAuditOverrides:
     payload = json.loads(file_path.read_text(encoding="utf-8"))
     ignored_ids = {str(item).strip() for item in payload.get("ignored_slack_user_ids", []) if str(item).strip()}
     ignored_emails = {
-        _normalize_email(str(item))
-        for item in payload.get("ignored_slack_emails", [])
-        if _normalize_email(str(item))
+        _normalize_email(str(item)) for item in payload.get("ignored_slack_emails", []) if _normalize_email(str(item))
     }
 
     by_user_id: dict[str, int] = {}

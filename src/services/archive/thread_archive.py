@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 import services.db as db
+import services.kos_api as kos_api
 
 
 def _safe_filename(value: str) -> str:
@@ -14,21 +15,9 @@ def _safe_filename(value: str) -> str:
 def _get_preferred_name(user: Optional[dict]) -> tuple[str, str]:
     if not user:
         return "unknown", "unknown"
-    first = (
-        user.get("first_preferred")
-        or user.get("preferred_first_name")
-        or user.get("first_name")
-        or user.get("first")
-        or "unknown"
-    )
-    last = (
-        user.get("last_preferred")
-        or user.get("preferred_last_name")
-        or user.get("last_name")
-        or user.get("last")
-        or "unknown"
-    )
-    return str(first), str(last)
+    first = kos_api.get_user_first_name(user, default="unknown")
+    last = kos_api.get_user_last_name(user, default="unknown")
+    return first, last
 
 
 def archive_thread_events(

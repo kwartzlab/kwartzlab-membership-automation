@@ -172,9 +172,7 @@ def _build_missing_accounts_blocks(rows: list[dict]) -> list[dict]:
                 "text": {
                     "type": "mrkdwn",
                     "text": (
-                        f"*{name}* (kOS `{kos_user_id}`)\n"
-                        f"kOS email: `{kos_email}`\n"
-                        f"Expected workspace: `{expected}`"
+                        f"*{name}* (kOS `{kos_user_id}`)\nkOS email: `{kos_email}`\nExpected workspace: `{expected}`"
                     ),
                 },
                 "accessory": {

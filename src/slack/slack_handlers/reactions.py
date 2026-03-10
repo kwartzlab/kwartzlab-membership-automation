@@ -3,9 +3,10 @@ import json
 import logging
 
 import services.db as db
-import services.kos_api as kos_api
 import services.mailer as mailer
 from services.slack.slack_web import post_message_reply, send_ephemeral_message
+from slack.slack_handlers.archive import do_archive
+from utils.names import format_user_full_name
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,12 @@ EMAIL_EPHEMERAL_LABELS = {
     "rejection": "Rejection",
 }
 
+EMAIL_BUILDERS = {
+    "acceptance": mailer.build_acceptance_email,
+    "return_visit": mailer.build_return_visit_email,
+    "rejection": mailer.build_rejection_email,
+}
+
 
 async def _send_applicant_email(
     *,
@@ -47,30 +54,12 @@ async def _send_applicant_email(
         logger.warning("No application found for applicant user ID %s.", applicant_user_id)
         return False
 
-    if choice == "acceptance":
-        message = mailer.build_acceptance_email(
-            user,
-            bcc_self=bcc_self,
-            signature_name=signature_name,
-            signature_role=signature_role,
-        )
-    elif choice == "return_visit":
-        message = mailer.build_return_visit_email(
-            user,
-            bcc_self=bcc_self,
-            signature_name=signature_name,
-            signature_role=signature_role,
-        )
-    elif choice == "rejection":
-        message = mailer.build_rejection_email(
-            user,
-            bcc_self=bcc_self,
-            signature_name=signature_name,
-            signature_role=signature_role,
-        )
-    else:
+    builder = EMAIL_BUILDERS.get(choice)
+    if not builder:
         logger.warning("Invalid email choice: %s.", choice)
         return False
+
+    message = builder(user, bcc_self=bcc_self, signature_name=signature_name, signature_role=signature_role)
 
     try:
         logger.info("Sending email to user %s", user["email"])
@@ -108,8 +97,16 @@ async def _send_applicant_email(
     post_message_reply(
         cfg=cfg,
         channel=channel_id,
-        text=EMAIL_PUBLIC_MESSAGES[choice].format(name=kos_api.get_user_full_name(user)),
+        text=EMAIL_PUBLIC_MESSAGES[choice].format(name=format_user_full_name(user, fallback="Applicant")),
     )
+
+    try:
+        await do_archive(
+            cfg=cfg, runtime=runtime, thread_ts=thread_ts, actor_user_id=actor_user_id, channel_id=channel_id
+        )
+    except Exception:
+        logger.exception("Failed to auto-archive thread %s after email send.", thread_ts)
+
     return True
 
 

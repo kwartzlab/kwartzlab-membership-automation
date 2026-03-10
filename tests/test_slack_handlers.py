@@ -5,6 +5,7 @@ import pytest
 import services.db as db
 import services.mailer as mailer
 from slack import slack_handlers
+from slack.slack_handlers import archive as archive_module
 from slack.slack_handlers import reactions as reactions_module
 
 
@@ -180,10 +181,12 @@ async def test_confirm_submit_sends_email(runtime, cfg, slack_db_engine, monkeyp
     ephemeral = []
     public = []
     responses = []
+    archived = []
 
     monkeypatch.setattr(mailer, "send_message", lambda *args, **kwargs: sent.append(1))
     monkeypatch.setattr(reactions_module, "send_ephemeral_message", lambda **kwargs: ephemeral.append(kwargs))
     monkeypatch.setattr(reactions_module, "post_message_reply", lambda **kwargs: public.append(kwargs))
+    monkeypatch.setattr(archive_module, "archive_thread_events", lambda **kwargs: archived.append(kwargs))
 
     with slack_db_engine.begin() as conn:
         conn.execute(
@@ -227,3 +230,5 @@ async def test_confirm_submit_sends_email(runtime, cfg, slack_db_engine, monkeyp
     assert len(ephemeral) == 1
     assert len(public) == 1
     assert responses
+    assert len(archived) == 1
+    assert archived[0]["thread_ts"] == "111.222"

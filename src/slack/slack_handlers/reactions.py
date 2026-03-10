@@ -4,7 +4,10 @@ import logging
 
 import services.db as db
 import services.mailer as mailer
+from utils.names import format_user_full_name
 from services.slack.slack_web import post_message_reply, send_ephemeral_message
+
+from slack.slack_handlers.archive import do_archive
 
 logger = logging.getLogger(__name__)
 
@@ -27,41 +30,12 @@ EMAIL_EPHEMERAL_LABELS = {
     "rejection": "Rejection",
 }
 
+EMAIL_BUILDERS = {
+    "acceptance": mailer.build_acceptance_email,
+    "return_visit": mailer.build_return_visit_email,
+    "rejection": mailer.build_rejection_email,
+}
 
-def _get_name_part(user: dict | None, keys: list[str]) -> str:
-    if not user:
-        return ""
-    for key in keys:
-        value = user.get(key)
-        if value:
-            value = str(value).strip()
-            if value:
-                return value
-    return ""
-
-
-def _format_applicant_name(user: dict | None) -> str:
-    first = _get_name_part(
-        user,
-        [
-            "first_preferred",
-            "preferred_first_name",
-            "first_name",
-            "first",
-        ],
-    )
-    last = _get_name_part(
-        user,
-        [
-            "last_preferred",
-            "preferred_last_name",
-            "last_name",
-            "last",
-        ],
-    )
-    if first and last:
-        return f"{first} {last}"
-    return first or last or "Applicant"
 
 
 async def _send_applicant_email(
@@ -82,30 +56,12 @@ async def _send_applicant_email(
         logger.warning("No application found for applicant user ID %s.", applicant_user_id)
         return False
 
-    if choice == "acceptance":
-        message = mailer.build_acceptance_email(
-            user,
-            bcc_self=bcc_self,
-            signature_name=signature_name,
-            signature_role=signature_role,
-        )
-    elif choice == "return_visit":
-        message = mailer.build_return_visit_email(
-            user,
-            bcc_self=bcc_self,
-            signature_name=signature_name,
-            signature_role=signature_role,
-        )
-    elif choice == "rejection":
-        message = mailer.build_rejection_email(
-            user,
-            bcc_self=bcc_self,
-            signature_name=signature_name,
-            signature_role=signature_role,
-        )
-    else:
+    builder = EMAIL_BUILDERS.get(choice)
+    if not builder:
         logger.warning("Invalid email choice: %s.", choice)
         return False
+
+    message = builder(user, bcc_self=bcc_self, signature_name=signature_name, signature_role=signature_role)
 
     try:
         logger.info("Sending email to user %s", user["email"])
@@ -143,8 +99,14 @@ async def _send_applicant_email(
     post_message_reply(
         cfg=cfg,
         channel=channel_id,
-        text=EMAIL_PUBLIC_MESSAGES[choice].format(name=_format_applicant_name(user)),
+        text=EMAIL_PUBLIC_MESSAGES[choice].format(name=format_user_full_name(user, fallback="Applicant")),
     )
+
+    try:
+        await do_archive(cfg=cfg, runtime=runtime, thread_ts=thread_ts, actor_user_id=actor_user_id, channel_id=channel_id)
+    except Exception:
+        logger.exception("Failed to auto-archive thread %s after email send.", thread_ts)
+
     return True
 
 

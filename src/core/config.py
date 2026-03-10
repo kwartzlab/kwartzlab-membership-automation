@@ -80,8 +80,8 @@ def load_config() -> Config:
         slack_channel_id=getenv("SLACK_CHANNEL_ID", required=True),
         slack_app_token=getenv("SLACK_APP_TOKEN", required=True),
         # Default to BoD slack usergroup
-        authorized_usergroups=getenv("AUTHORIZED_USERGROUPS", "SDFB4PKGE").split(" "),
-        authorized_users=getenv("AUTHORIZED_USERS", "").split(" "),
+        authorized_usergroups=[g for g in getenv("AUTHORIZED_USERGROUPS", "SDFB4PKGE").split(" ") if g],
+        authorized_users=[u for u in getenv("AUTHORIZED_USERS", "").split(" ") if u],
         # kOS API
         kos_api_base_url=getenv("KOS_API_BASE_URL", required=True),
         kos_api_token=getenv("KOS_API_TOKEN", required=True),

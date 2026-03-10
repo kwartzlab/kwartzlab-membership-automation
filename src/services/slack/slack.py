@@ -11,6 +11,7 @@ from services.db import (
     insert_slack_event_row,
 )
 from services.slack.slack_web import post_message_reply
+from utils.forms import applicant_data_to_dict
 
 logger = logging.getLogger(__name__)
 
@@ -219,36 +220,6 @@ def build_questions_modal_view(
         "close": {"type": "plain_text", "text": "Close"},
         "blocks": blocks,
     }
-
-
-def applicant_data_to_dict(data: dict) -> dict:
-    return_dict = {}
-
-    for field in data.values():
-        label = field["label"]
-        value = field["value"]
-
-        # Currently making assumption that preferred first/last always come after.
-        # If that is not the case, will need to update this
-        if label == "Preferred First Name":
-            if value is not None and len(value) != 0:
-                label = "First Name"
-            else:
-                continue
-        elif label == "Preferred Last Name":
-            if value is not None and len(value) != 0:
-                label = "Last Name"
-            else:
-                continue
-        elif label == "Preferred Pronouns":
-            if value is not None and len(value) != 0:
-                label = "Pronouns"
-            else:
-                continue
-
-        return_dict[label] = value
-
-    return return_dict
 
 
 def post_application(cfg: config.Config, application_data) -> None:

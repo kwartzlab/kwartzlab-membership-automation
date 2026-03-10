@@ -5,8 +5,8 @@ import pytest
 import services.db as db
 import services.mailer as mailer
 from slack import slack_handlers
-from slack.slack_handlers import reactions as reactions_module
 from slack.slack_handlers import archive as archive_module
+from slack.slack_handlers import reactions as reactions_module
 
 
 class FakeApp:
@@ -186,7 +186,7 @@ async def test_confirm_submit_sends_email(runtime, cfg, slack_db_engine, monkeyp
     monkeypatch.setattr(mailer, "send_message", lambda *args, **kwargs: sent.append(1))
     monkeypatch.setattr(reactions_module, "send_ephemeral_message", lambda **kwargs: ephemeral.append(kwargs))
     monkeypatch.setattr(reactions_module, "post_message_reply", lambda **kwargs: public.append(kwargs))
-    monkeypatch.setattr(archive_module, "archive_thread_events", lambda **kwargs: archived.append(kwargs) or __import__("pathlib").Path("archive.csv"))
+    monkeypatch.setattr(archive_module, "archive_thread_events", lambda **kwargs: archived.append(kwargs))
 
     with slack_db_engine.begin() as conn:
         conn.execute(

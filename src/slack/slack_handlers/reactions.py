@@ -4,10 +4,9 @@ import logging
 
 import services.db as db
 import services.mailer as mailer
-from utils.names import format_user_full_name
 from services.slack.slack_web import post_message_reply, send_ephemeral_message
-
 from slack.slack_handlers.archive import do_archive
+from utils.names import format_user_full_name
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,6 @@ EMAIL_BUILDERS = {
     "return_visit": mailer.build_return_visit_email,
     "rejection": mailer.build_rejection_email,
 }
-
 
 
 async def _send_applicant_email(
@@ -103,7 +101,9 @@ async def _send_applicant_email(
     )
 
     try:
-        await do_archive(cfg=cfg, runtime=runtime, thread_ts=thread_ts, actor_user_id=actor_user_id, channel_id=channel_id)
+        await do_archive(
+            cfg=cfg, runtime=runtime, thread_ts=thread_ts, actor_user_id=actor_user_id, channel_id=channel_id
+        )
     except Exception:
         logger.exception("Failed to auto-archive thread %s after email send.", thread_ts)
 

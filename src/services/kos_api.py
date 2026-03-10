@@ -8,6 +8,48 @@ import requests
 logger = logging.getLogger(__name__)
 
 
+_FIRST_NAME_KEYS = (
+    "first_preferred",
+    "preferred_first_name",
+    "first_name",
+    "first",
+)
+_LAST_NAME_KEYS = (
+    "last_preferred",
+    "preferred_last_name",
+    "last_name",
+    "last",
+)
+
+
+def get_user_field(user: dict | None, keys: tuple[str, ...], default: str = "") -> str:
+    if not user:
+        return default
+    for key in keys:
+        value = user.get(key)
+        if value:
+            value = str(value).strip()
+            if value:
+                return value
+    return default
+
+
+def get_user_first_name(user: dict | None, default: str = "") -> str:
+    return get_user_field(user, _FIRST_NAME_KEYS, default=default)
+
+
+def get_user_last_name(user: dict | None, default: str = "") -> str:
+    return get_user_field(user, _LAST_NAME_KEYS, default=default)
+
+
+def get_user_full_name(user: dict | None, default: str = "Applicant") -> str:
+    first = get_user_first_name(user)
+    last = get_user_last_name(user)
+    if first and last:
+        return f"{first} {last}"
+    return first or last or default
+
+
 class KosApiClient:
     def __init__(self, base_url: str, token: str, timeout_seconds: int = 10):
         self.base_url = base_url.rstrip("/")
@@ -21,6 +63,15 @@ class KosApiClient:
 
     def get_user(self, user_id: int) -> Optional[dict]:
         return self._get_json(f"/api/users/{user_id}")
+
+    def list_users(self) -> list[dict]:
+        users: list[dict] = []
+        next_path: Optional[str] = "/api/users"
+        while next_path:
+            payload = self._request_json("get", next_path)
+            page_users, next_path = _extract_users_page(payload)
+            users.extend(page_users)
+        return users
 
     def get_next_outbox(self) -> Optional[dict]:
         response = self._request("get", "/api/form_submissions/outbox/next", allow_statuses={404})
@@ -77,7 +128,10 @@ class KosApiClient:
     def _request(
         self, method: str, path: str, *, allow_statuses: Optional[set[int]] = None, **kwargs
     ) -> requests.Response:
-        url = f"{self.base_url}{path}"
+        if path.startswith("http://") or path.startswith("https://"):
+            url = path
+        else:
+            url = f"{self.base_url}{path}"
         response = self.session.request(method, url, timeout=self.timeout_seconds, **kwargs)
 
         if allow_statuses and response.status_code in allow_statuses:
@@ -90,6 +144,31 @@ class KosApiClient:
             raise
 
         return response
+
+
+def _extract_users_page(payload: Any) -> tuple[list[dict], Optional[str]]:
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)], None
+
+    if not isinstance(payload, dict):
+        raise ValueError("Unexpected users payload type from kOS API.")
+
+    if isinstance(payload.get("data"), list):
+        users = [item for item in payload["data"] if isinstance(item, dict)]
+        next_path = payload.get("next_page_url")
+        return users, str(next_path) if next_path else None
+
+    if isinstance(payload.get("users"), list):
+        users = [item for item in payload["users"] if isinstance(item, dict)]
+        next_path = payload.get("next_page_url")
+        return users, str(next_path) if next_path else None
+
+    if isinstance(payload.get("results"), list):
+        users = [item for item in payload["results"] if isinstance(item, dict)]
+        next_path = payload.get("next_page_url")
+        return users, str(next_path) if next_path else None
+
+    raise ValueError("Could not locate user list in kOS API response.")
 
 
 def mark_outbox_on_error(

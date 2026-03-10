@@ -11,7 +11,7 @@ archives/
 
 # Google Creds
 credentials.json
-token.json
+token*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

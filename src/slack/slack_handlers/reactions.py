@@ -3,6 +3,7 @@ import json
 import logging
 
 import services.db as db
+import services.kos_api as kos_api
 import services.mailer as mailer
 from utils.names import format_user_full_name
 from services.slack.slack_web import post_message_reply, send_ephemeral_message
@@ -35,7 +36,6 @@ EMAIL_BUILDERS = {
     "return_visit": mailer.build_return_visit_email,
     "rejection": mailer.build_rejection_email,
 }
-
 
 
 async def _send_applicant_email(

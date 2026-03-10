@@ -8,6 +8,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
+import services.kos_api as kos_api
 from templates import email_templates
 
 SCOPES = [
@@ -151,7 +152,7 @@ def _build_membership_email(
         from_name=from_name or MEMBERSHIP_GROUP_FROM_NAME,
         from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
         email_template=email_template,
-        template_vars={"name": user["first_preferred"]},
+        template_vars={"name": kos_api.get_user_first_name(user, default="there")},
         signature=signature,
         bcc=bcc,
         signature_name=signature_name or "",

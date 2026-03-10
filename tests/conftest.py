@@ -51,6 +51,8 @@ def cfg(tmp_path, slack_db_engine):
         authorized_users=[],
         credentials_file=str(tmp_path / "credentials.json"),
         token_file=str(tmp_path / "token.json"),
+        google_admin_token_file=str(tmp_path / "token_admin.json"),
+        google_workspace_domain="kwartzlab",
         poll_interval_seconds=1,
         environment="test",
         debug=False,

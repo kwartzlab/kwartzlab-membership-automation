@@ -6,6 +6,7 @@ from .app_mentions import register_app_mention_handler
 from .archive import register_archive_shortcut_handler
 from .dm import register_dm_handler
 from .email_actions import register_email_actions
+from .email_dm import register_email_dm_handlers
 from .email_shortcut import register_email_shortcut_handler
 from .messages import register_message_handler
 from .modal import register_modal_handler
@@ -20,6 +21,7 @@ __all__ = [
     "register_email_shortcut_handler",
     "register_message_handler",
     "register_modal_handler",
+    "register_email_dm_handlers",
     "register_onboarding_dm_handlers",
     "register_reaction_handlers",
     "_handle_reaction_email",

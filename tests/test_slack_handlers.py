@@ -30,7 +30,7 @@ class FakeApp:
 
         return decorator
 
-    def event(self, name):
+    def event(self, name, **_):
         def decorator(fn):
             self.events[name] = fn
             return fn

@@ -2,13 +2,17 @@ import logging
 import re
 
 import services.kos_api as kos_api
+import services.mailer as mailer
 from services.google_admin import (
     add_user_to_group,
     build_workspace_user_insert_body,
     create_workspace_user,
+    generate_initial_password,
     generate_workspace_primary_email_candidates,
+    get_workspace_user_by_email,
     list_workspace_recovery_email_index,
     list_workspace_user_emails,
+    reset_workspace_user_password,
 )
 
 logger = logging.getLogger(__name__)
@@ -109,6 +113,7 @@ def create_workspace_account_for_user(
     *,
     workspace_domain: str,
     workspace_groups: list[str],
+    gmail_service=None,
 ) -> dict:
     preview = build_onboarding_preview(
         kos_client,
@@ -120,9 +125,11 @@ def create_workspace_account_for_user(
         return {"ok": False, "message": preview["message"]}
 
     user = kos_client.get_user(kos_user_id)
+    initial_password = generate_initial_password()
     user_insert_body = build_workspace_user_insert_body(
         user,
         domain=workspace_domain,
+        initial_password=initial_password,
     )
 
     try:
@@ -151,6 +158,13 @@ def create_workspace_account_for_user(
             logger.exception("Failed adding user %s to group %s.", user_insert_body.get("primaryEmail"), group)
             group_results.append({"group": group, "status": f"error:{exc}"})
 
+    email_result = mailer.send_workspace_credentials_email(
+        user,
+        workspace_email=str(user_insert_body.get("primaryEmail") or ""),
+        initial_password=initial_password,
+        gmail_service=gmail_service,
+    )
+
     return {
         "ok": True,
         "message": f"Created Workspace account for kOS user {kos_user_id}.",
@@ -162,6 +176,90 @@ def create_workspace_account_for_user(
             "recoveryEmail": created_user.get("recoveryEmail"),
         },
         "group_results": group_results,
+        "email_result": email_result,
+    }
+
+
+def build_reset_preview(
+    kos_client,
+    admin_service,
+    kos_user_id: int,
+    *,
+    workspace_domain: str,
+) -> dict:
+    user = kos_client.get_user(kos_user_id)
+    if not user:
+        return {"ok": False, "message": f"No kOS user found for id {kos_user_id}."}
+
+    try:
+        candidates = generate_workspace_primary_email_candidates(user, workspace_domain)
+    except ValueError as exc:
+        return {"ok": False, "message": f"Cannot determine workspace email: {exc}"}
+
+    workspace_email = None
+    for candidate in candidates:
+        if get_workspace_user_by_email(admin_service, user_email=candidate):
+            workspace_email = candidate
+            break
+
+    if not workspace_email:
+        return {"ok": False, "message": f"No Workspace account found for kOS user {kos_user_id}."}
+
+    return {
+        "ok": True,
+        "kos_user_id": kos_user_id,
+        "kos_name": kos_api.get_user_full_name(user, default="unknown"),
+        "kos_email": user.get("email"),
+        "workspace_email": workspace_email,
+        "message": f"Ready to reset password for {workspace_email}.",
+    }
+
+
+def reset_workspace_account_password(
+    kos_client,
+    admin_service,
+    kos_user_id: int,
+    *,
+    workspace_domain: str,
+    gmail_service=None,
+) -> dict:
+    user = kos_client.get_user(kos_user_id)
+    if not user:
+        return {"ok": False, "message": f"No kOS user found for id {kos_user_id}."}
+
+    try:
+        candidates = generate_workspace_primary_email_candidates(user, workspace_domain)
+    except ValueError as exc:
+        return {"ok": False, "message": f"Cannot determine workspace email: {exc}"}
+
+    workspace_email = None
+    for candidate in candidates:
+        if get_workspace_user_by_email(admin_service, user_email=candidate):
+            workspace_email = candidate
+            break
+
+    if not workspace_email:
+        return {"ok": False, "message": f"No Workspace account found for kOS user {kos_user_id}."}
+
+    new_password = generate_initial_password()
+    try:
+        reset_workspace_user_password(admin_service, user_email=workspace_email, new_password=new_password)
+    except Exception as exc:
+        logger.exception("Failed to reset password for Workspace user %s.", workspace_email)
+        return {"ok": False, "message": "Password reset failed.", "error": str(exc)}
+
+    email_result = mailer.send_workspace_password_reset_email(
+        user,
+        workspace_email=workspace_email,
+        new_password=new_password,
+        gmail_service=gmail_service,
+    )
+
+    return {
+        "ok": True,
+        "message": f"Reset password for {workspace_email}.",
+        "workspace_email": workspace_email,
+        "email_result": email_result,
     }
 
 

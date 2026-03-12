@@ -2,37 +2,26 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any
 
-from services.google_admin import get_admin_directory_service
+from services.google_admin import get_workspace_user_by_email
 from services.workspace_onboarding import (
     build_onboarding_preview,
     collect_missing_workspace_users,
     create_workspace_account_for_user,
 )
+from slack.slack_handlers.user_resolver import resolve_kos_user_id
+from slack.slack_handlers.utils import get_actor_user_id, get_admin_service
 
 logger = logging.getLogger(__name__)
 
 MAX_MISSING_RESULTS = 15
-_ADMIN_SERVICE_CACHE: dict[str, Any] = {}
-
-
-def _get_admin_service(cfg) -> object:
-    service = _ADMIN_SERVICE_CACHE.get("service")
-    if service is None:
-        service = get_admin_directory_service(
-            credentials_file=cfg.credentials_file,
-            token_file=cfg.google_admin_token_file,
-        )
-        _ADMIN_SERVICE_CACHE["service"] = service
-    return service
 
 
 def onboarding_help_text() -> str:
     return (
         "Onboarding DM commands:\n"
         "- `onboard missing` or `onboard list`: show active/hiatus users missing Workspace accounts\n"
-        "- `onboard <kos_user_id>`: preview and confirm Workspace account creation for one user\n"
+        "- `onboard <kos_user_id|@user>`: preview and confirm Workspace account creation for one user\n"
         "- `help`: show this message"
     )
 
@@ -45,15 +34,18 @@ async def handle_onboarding_dm_command(text: str, *, user_id: str, say, cfg, run
         rows = await asyncio.to_thread(
             collect_missing_workspace_users,
             runtime.kos_api_client,
-            _get_admin_service(cfg),
+            get_admin_service(cfg),
             workspace_domain=cfg.google_workspace_domain,
         )
         await say(blocks=_build_missing_accounts_blocks(rows), text=_missing_accounts_summary_text(rows))
         return True
 
-    match = re.fullmatch(r"onboard\s+(\d+)", lowered)
-    if match:
-        kos_user_id = int(match.group(1))
+    match = re.match(r"(?i)^onboard\s+(\S+)", text.strip())
+    if match and not lowered.startswith("onboard missing") and not lowered.startswith("onboard list"):
+        kos_user_id, error = await resolve_kos_user_id(match.group(1), runtime=runtime)
+        if error:
+            await say(error)
+            return True
         preview = await asyncio.to_thread(
             build_onboarding_preview,
             runtime.kos_api_client,
@@ -78,7 +70,7 @@ def register_onboarding_dm_handlers(app, cfg, runtime):
     @app.action("dm_onboard_prepare")
     async def handle_dm_onboard_prepare(ack, body, respond):
         await ack()
-        actor_user_id = str(body.get("user", {}).get("id") or "")
+        actor_user_id = get_actor_user_id(body)
         if actor_user_id not in runtime.cache_manager.authorized_users:
             await respond(replace_original=False, text="You are not authorized to run onboarding workflows.")
             return
@@ -101,6 +93,18 @@ def register_onboarding_dm_handlers(app, cfg, runtime):
             await respond(replace_original=False, text=preview["message"])
             return
 
+        workspace_email = preview.get("workspace_primary_email")
+        if workspace_email:
+            existing = await asyncio.to_thread(
+                get_workspace_user_by_email, get_admin_service(cfg), user_email=workspace_email
+            )
+            if existing:
+                await respond(
+                    replace_original=False,
+                    text=f"A Workspace account already exists for {workspace_email}.",
+                )
+                return
+
         await respond(
             replace_original=False,
             text=preview["message"],
@@ -110,7 +114,7 @@ def register_onboarding_dm_handlers(app, cfg, runtime):
     @app.action("dm_onboard_create")
     async def handle_dm_onboard_create(ack, body, respond):
         await ack()
-        actor_user_id = str(body.get("user", {}).get("id") or "")
+        actor_user_id = get_actor_user_id(body)
         if actor_user_id not in runtime.cache_manager.authorized_users:
             await respond(replace_original=True, text="You are not authorized to run onboarding workflows.")
             return
@@ -130,10 +134,11 @@ def register_onboarding_dm_handlers(app, cfg, runtime):
         result = await asyncio.to_thread(
             create_workspace_account_for_user,
             runtime.kos_api_client,
-            _get_admin_service(cfg),
+            get_admin_service(cfg),
             kos_user_id,
             workspace_domain=cfg.google_workspace_domain,
             workspace_groups=list(cfg.google_workspace_groups or []),
+            gmail_service=runtime.mailer,
         )
         await respond(replace_original=True, text=result["message"], blocks=_build_create_result_blocks(result))
 
@@ -202,22 +207,24 @@ def _build_missing_accounts_blocks(rows: list[dict]) -> list[dict]:
 
 
 def _build_preview_blocks(preview: dict, request_user_id: str) -> list[dict]:
-    summary = {
-        "kos_user_id": preview.get("kos_user_id"),
-        "kos_name": preview.get("kos_name"),
-        "kos_email": preview.get("kos_email"),
-        "workspace_primary_email": preview.get("workspace_primary_email"),
-        "workspace_recovery_email": preview.get("workspace_recovery_email"),
-        "workspace_groups": preview.get("workspace_groups"),
-    }
+    groups = preview.get("workspace_groups") or []
+    groups_text = ", ".join(f"`{g.split('@')[0]}`" for g in groups) if groups else "none"
     return [
         {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": "*Onboarding preview*"},
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f"{preview.get('kos_name') or 'Unknown'} (kOS #{preview.get('kos_user_id')})",
+            },
         },
         {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": f"```{json.dumps(summary, indent=2, ensure_ascii=True)}```"},
+            "fields": [
+                {"type": "mrkdwn", "text": f"*Workspace email*\n{preview.get('workspace_primary_email') or 'n/a'}"},
+                {"type": "mrkdwn", "text": f"*kOS email*\n{preview.get('kos_email') or 'none'}"},
+                {"type": "mrkdwn", "text": f"*Recovery email*\n{preview.get('workspace_recovery_email') or 'none'}"},
+                {"type": "mrkdwn", "text": f"*Groups*\n{groups_text}"},
+            ],
         },
         {
             "type": "actions",
@@ -234,7 +241,13 @@ def _build_preview_blocks(preview: dict, request_user_id: str) -> list[dict]:
                         },
                         ensure_ascii=True,
                     ),
-                }
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Cancel"},
+                    "action_id": "dm_cancel",
+                    "value": "cancel",
+                },
             ],
         },
     ]
@@ -259,20 +272,42 @@ def _build_create_result_blocks(result: dict) -> list[dict]:
 
     created_user = result.get("created_user", {})
     group_results = result.get("group_results", [])
+    email_result = result.get("email_result", {})
+
+    group_lines = []
+    for g in group_results:
+        status = g.get("status", "unknown")
+        icon = ":white_check_mark:" if status in ("added", "already_member") else ":x:"
+        group_lines.append(f"{icon} {g.get('group')} — {status}")
+    groups_text = "\n".join(group_lines) if group_lines else "No groups configured"
+
+    if email_result.get("ok"):
+        email_line = f":envelope: Credentials email sent to {email_result.get('recipient')}"
+    elif email_result.get("reason") == "no_gmail_service":
+        email_line = ":warning: Credentials email not sent (no Gmail service configured)"
+    elif email_result.get("reason") == "no_kos_email":
+        email_line = ":warning: Credentials email not sent (user has no kOS email)"
+    else:
+        email_line = f":x: Credentials email failed: {email_result.get('reason', 'unknown error')}"
+
     return [
-        {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f":white_check_mark: {result.get('message', 'Account created.')}"},
-        },
-        {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"```{json.dumps(created_user, indent=2, ensure_ascii=True)}```"},
-        },
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"*Group assignment results*\n```{json.dumps(group_results, indent=2, ensure_ascii=True)}```",
+                "text": (
+                    f":white_check_mark: *Account created*\n"
+                    f"*Workspace:* {created_user.get('primaryEmail') or 'unknown'}\n"
+                    f"*Recovery email:* {created_user.get('recoveryEmail') or 'none'}"
+                ),
             },
+        },
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*Groups*\n{groups_text}"},
+        },
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": email_line},
         },
     ]

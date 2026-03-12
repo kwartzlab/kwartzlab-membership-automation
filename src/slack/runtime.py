@@ -117,4 +117,5 @@ def build_slack_runtime(cfg, kos_api_client, slack_db_engine, mailer) -> SlackRu
     slack_handlers.register_email_actions(slack_app, cfg, runtime)
     slack_handlers.register_modal_handler(slack_app, cfg, runtime)
     slack_handlers.register_onboarding_dm_handlers(slack_app, cfg, runtime)
+    slack_handlers.register_email_dm_handlers(slack_app, cfg, runtime)
     return runtime

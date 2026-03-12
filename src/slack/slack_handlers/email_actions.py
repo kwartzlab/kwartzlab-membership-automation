@@ -3,8 +3,7 @@ import logging
 
 import services.db as db
 from services.slack.slack_web import send_ephemeral_message
-
-from .reactions import _send_applicant_email
+from slack.slack_handlers.reactions import _send_applicant_email
 
 logger = logging.getLogger(__name__)
 

@@ -2,8 +2,8 @@ import logging
 
 from slack.slack_handlers.audit_dm import audit_dm_help_text, handle_audit_dm_command
 from slack.slack_handlers.email_dm import email_dm_help_text, handle_email_dm_command
-from slack.slack_handlers.utils import is_message_channel_type
 from slack.slack_handlers.onboarding_dm import handle_onboarding_dm_command, onboarding_help_text
+from slack.slack_handlers.utils import is_message_channel_type
 
 logger = logging.getLogger(__name__)
 

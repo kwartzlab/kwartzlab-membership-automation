@@ -1,5 +1,6 @@
 import logging
 
+from slack.slack_handlers.archive_dm import archive_dm_help_text, handle_archive_dm_command
 from slack.slack_handlers.audit_dm import audit_dm_help_text, handle_audit_dm_command
 from slack.slack_handlers.email_dm import email_dm_help_text, handle_email_dm_command
 from slack.slack_handlers.onboarding_dm import handle_onboarding_dm_command, onboarding_help_text
@@ -25,7 +26,7 @@ def register_dm_handler(app, cfg, runtime):
 
         lowered = text.lower()
         if lowered in {"help", "dm help"}:
-            await say(f"DM workflows:\n{onboarding_help_text()}\n\n{email_dm_help_text()}\n\n{audit_dm_help_text()}")
+            await say(f"DM workflows:\n{onboarding_help_text()}\n\n{email_dm_help_text()}\n\n{audit_dm_help_text()}\n\n{archive_dm_help_text()}")
             return
 
         if lowered.startswith("onboard"):
@@ -46,6 +47,17 @@ def register_dm_handler(app, cfg, runtime):
             or lowered.startswith("reset email")
         ):
             handled = await handle_email_dm_command(
+                text,
+                user_id=user_id,
+                say=say,
+                cfg=cfg,
+                runtime=runtime,
+            )
+            if handled:
+                return
+
+        if lowered.startswith("archive") or lowered == "audit archives":
+            handled = await handle_archive_dm_command(
                 text,
                 user_id=user_id,
                 say=say,

@@ -66,6 +66,22 @@ def parse_drive_folder_id(folder_url: str) -> str | None:
     return None
 
 
+def _find_existing_file(service, *, name: str, folder_id: str) -> str | None:
+    escaped = name.replace("'", "\\'")
+    response = (
+        service.files()
+        .list(
+            q=f"name='{escaped}' and '{folder_id}' in parents and trashed=false",
+            fields="files(id)",
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        )
+        .execute()
+    )
+    files = response.get("files", [])
+    return files[0]["id"] if files else None
+
+
 def upload_file_to_drive(
     file_path: str | Path,
     folder_url: str,
@@ -80,16 +96,30 @@ def upload_file_to_drive(
 
     file_path = Path(file_path)
     service = get_drive_service(credentials_file, token_file)
-    metadata = {"name": file_path.name, "parents": [folder_id]}
     media = MediaFileUpload(str(file_path), mimetype="text/csv")
-    created = (
-        service.files()
-        .create(
-            body=metadata,
-            media_body=media,
-            fields="id, webViewLink",
-            supportsAllDrives=True,
+
+    existing_id = _find_existing_file(service, name=file_path.name, folder_id=folder_id)
+    if existing_id:
+        result = (
+            service.files()
+            .update(
+                fileId=existing_id,
+                body={"name": file_path.name},
+                media_body=media,
+                fields="id, webViewLink",
+                supportsAllDrives=True,
+            )
+            .execute()
         )
-        .execute()
-    )
-    return created.get("webViewLink")
+    else:
+        result = (
+            service.files()
+            .create(
+                body={"name": file_path.name, "parents": [folder_id]},
+                media_body=media,
+                fields="id, webViewLink",
+                supportsAllDrives=True,
+            )
+            .execute()
+        )
+    return result.get("webViewLink")

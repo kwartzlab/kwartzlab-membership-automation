@@ -10,10 +10,12 @@ from templates.sql import (
     CREATE_SLACK_THREAD_EVENTS_TABLE_SQL,
     GET_APPLICANT_USER_ID_BY_THREAD_TS_SQL,
     GET_FORM_SUBMISSION_ID_BY_THREAD_TS_SQL,
+    GET_LATEST_THREAD_TS_BY_APPLICANT_SQL,
     GET_MODAL_BLOCKS_PAYLOAD_SQL,
     GET_THREAD_EVENTS_SQL,
     GET_THREAD_TS_BY_COMPACT_SQL,
     GET_THREAD_TS_SQL,
+    GET_UNARCHIVED_THREADS_SQL,
     HAS_EMAIL_SENT_SQL,
     INSERT_AUDIT_LOG_SQL,
     INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL,
@@ -90,6 +92,19 @@ def get_applicant_user_id_by_thread_ts(conn, thread_ts: str) -> str | None:
         {"thread_ts": thread_ts},
     ).fetchone()
     return result[0] if result else None
+
+
+def get_latest_thread_ts_by_applicant(conn, applicant_user_id: str) -> str | None:
+    result = conn.execute(
+        GET_LATEST_THREAD_TS_BY_APPLICANT_SQL,
+        {"applicant_user_id": applicant_user_id},
+    ).fetchone()
+    return result[0] if result else None
+
+
+def get_unarchived_threads(conn) -> list[dict]:
+    rows = conn.execute(GET_UNARCHIVED_THREADS_SQL).fetchall()
+    return [dict(row._mapping) for row in rows]
 
 
 def get_modal_blocks_payload_by_thread_ts(conn, thread_ts: str) -> dict:

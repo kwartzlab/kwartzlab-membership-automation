@@ -1,6 +1,5 @@
 import csv
 import re
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -33,11 +32,10 @@ def archive_thread_events(
         user = kos_api_client.get_user(int(applicant_user_id))
 
     first_name, last_name = _get_preferred_name(user)
-    date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
 
     filename = (
         f"{_safe_filename(str(applicant_user_id))}_"
-        f"{_safe_filename(first_name)}_{_safe_filename(last_name)}_{date_str}.csv"
+        f"{_safe_filename(first_name)}_{_safe_filename(last_name)}.csv"
     )
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

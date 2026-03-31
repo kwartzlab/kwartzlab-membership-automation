@@ -12,8 +12,8 @@ from services.google_admin import (
     get_workspace_user_by_email,
     list_workspace_recovery_email_index,
     list_workspace_user_emails,
-    reset_workspace_user_password,
     normalize_workspace_domain,
+    reset_workspace_user_password,
 )
 
 logger = logging.getLogger(__name__)

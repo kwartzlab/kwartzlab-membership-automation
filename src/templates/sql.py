@@ -129,6 +129,34 @@ GET_FORM_SUBMISSION_ID_BY_THREAD_TS_SQL = text("""
     LIMIT 1
 """)
 
+GET_UNARCHIVED_THREADS_SQL = text("""
+    SELECT
+        ste.thread_ts,
+        ste.applicant_user_id,
+        ste.form_submission_id,
+        ste.created_at,
+        MAX(CASE WHEN al_email.action IS NOT NULL THEN al_email.action END) AS last_email_type
+    FROM slack_thread_events ste
+    LEFT JOIN audit_log al_archive
+        ON al_archive.thread_ts = ste.thread_ts
+        AND al_archive.action = 'thread_archived'
+    LEFT JOIN audit_log al_email
+        ON al_email.thread_ts = ste.thread_ts
+        AND al_email.action = 'email_sent'
+    WHERE ste.event = 'post'
+      AND al_archive.id IS NULL
+    GROUP BY ste.thread_ts, ste.applicant_user_id, ste.form_submission_id, ste.created_at
+    ORDER BY ste.thread_ts DESC
+""")
+
+GET_LATEST_THREAD_TS_BY_APPLICANT_SQL = text("""
+    SELECT thread_ts
+    FROM slack_thread_events
+    WHERE applicant_user_id = :applicant_user_id AND event = 'post'
+    ORDER BY thread_ts DESC
+    LIMIT 1
+""")
+
 HAS_EMAIL_SENT_SQL = text("""
     SELECT 1
     FROM audit_log

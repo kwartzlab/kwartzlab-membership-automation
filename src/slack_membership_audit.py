@@ -239,7 +239,6 @@ def _build_kos_id_index(users: list[dict]) -> dict[int, dict]:
     return index
 
 
-
 def _safe_kos_identity(user: dict) -> dict:
     return {
         "id": user.get("id"),

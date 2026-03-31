@@ -50,6 +50,13 @@ def get_user_full_name(user: dict | None, default: str = "Applicant") -> str:
     return first or last or default
 
 
+ACTIVE_STATUSES: frozenset[str] = frozenset({"active", "hiatus"})
+
+
+def is_active_or_hiatus(user: dict) -> bool:
+    return str(user.get("status") or "").strip().lower() in ACTIVE_STATUSES
+
+
 class KosApiClient:
     def __init__(self, base_url: str, token: str, timeout_seconds: int = 10):
         self.base_url = base_url.rstrip("/")

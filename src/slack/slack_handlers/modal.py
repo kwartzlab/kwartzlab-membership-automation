@@ -15,7 +15,7 @@ def register_modal_handler(app, cfg, runtime):
 
         try:
             channel_id = body.get("channel", {}).get("id") or body.get("container", {}).get("channel_id")
-            if getattr(cfg, "slack_channel_id", None) and channel_id != cfg.slack_channel_id:
+            if channel_id != cfg.slack_channel_id:
                 return
 
             thread_ts = body.get("message", {}).get("thread_ts") or body.get("message", {}).get("ts")

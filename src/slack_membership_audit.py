@@ -15,7 +15,6 @@ from core.logging_setup import configure_logging
 logger = logging.getLogger(__name__)
 
 NAME_SANITIZE_PATTERN = re.compile(r"[^a-z0-9]+")
-ACTIVE_KOS_STATUSES = {"active", "hiatus"}
 
 
 @dataclass(frozen=True)
@@ -153,10 +152,6 @@ def _normalize_name(value: str) -> str:
     return clean
 
 
-def _is_kos_active_or_hiatus(user: dict) -> bool:
-    return str(user.get("status") or "").strip().lower() in ACTIVE_KOS_STATUSES
-
-
 def _is_human_slack_user(slack_user: dict) -> bool:
     if slack_user.get("id") == "USLACKBOT":
         return False
@@ -243,25 +238,6 @@ def _build_kos_id_index(users: list[dict]) -> dict[int, dict]:
             index[user_id] = user
     return index
 
-
-def _build_kos_last_name_index(users: list[dict]) -> dict[str, list[dict]]:
-    index: dict[str, list[dict]] = {}
-    for user in users:
-        last = _normalize_name(kos_api.get_user_last_name(user, default=""))
-        if not last:
-            continue
-        index.setdefault(last, []).append(user)
-    return index
-
-
-def _build_kos_first_name_index(users: list[dict]) -> dict[str, list[dict]]:
-    index: dict[str, list[dict]] = {}
-    for user in users:
-        first = _normalize_name(kos_api.get_user_first_name(user, default=""))
-        if not first:
-            continue
-        index.setdefault(first, []).append(user)
-    return index
 
 
 def _safe_kos_identity(user: dict) -> dict:
@@ -506,7 +482,7 @@ def _audit_single_slack_user(
         "kos_name": kos_api.get_user_full_name(matched, default="unknown"),
         "kos_email": matched.get("email"),
         "kos_status": matched.get("status"),
-        "kos_is_active_or_hiatus": _is_kos_active_or_hiatus(matched),
+        "kos_is_active_or_hiatus": kos_api.is_active_or_hiatus(matched),
     }
     if match_source.startswith("low_confidence"):
         return "low_confidence", mapped_row

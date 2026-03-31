@@ -76,7 +76,8 @@ def process_one(
         return response
 
     except Exception as exc:
-        mark_outbox_on_error(kos_api_client, outbox_id, exc, log=logger)
+        if outbox_id:
+            mark_outbox_on_error(kos_api_client, outbox_id, exc, log=logger)
         raise
 
 

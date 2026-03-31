@@ -16,7 +16,9 @@ from services.google_admin import (
     list_group_member_emails,
     list_workspace_recovery_email_index,
     list_workspace_user_emails,
+    normalize_workspace_domain,
 )
+from utils.cli import yes_no_prompt
 
 logger = logging.getLogger(__name__)
 LOCAL_PART_SANITIZE_PATTERN = re.compile(r"[^a-z0-9]+")
@@ -68,23 +70,12 @@ def _build_audit_result(user: dict, *, workspace_email: str, exists: bool, missi
     }
 
 
-def _is_active_user(user: dict) -> bool:
-    return str(user.get("status") or "").strip().lower() in {"active", "hiatus"}
-
-
-def _normalize_workspace_domain(domain: str) -> str:
-    clean_domain = domain.strip().lstrip("@").lower()
-    if "." not in clean_domain:
-        clean_domain = f"{clean_domain}.ca"
-    return clean_domain
-
-
 def _normalize_email_for_match(email: str, workspace_domain: str) -> str:
     value = (email or "").strip().lower()
     if "@" not in value:
         return ""
     local_part, domain_part = value.rsplit("@", 1)
-    normalized_domain = _normalize_workspace_domain(workspace_domain)
+    normalized_domain = normalize_workspace_domain(workspace_domain)
     if domain_part != normalized_domain:
         return ""
     normalized_local = LOCAL_PART_SANITIZE_PATTERN.sub("", local_part)
@@ -235,8 +226,8 @@ def _load_workspace_directory_data(cfg: WorkspaceAuditConfig) -> WorkspaceDirect
 
 
 def _partition_users_by_status(users: list[dict]) -> tuple[list[dict], list[dict]]:
-    active_users = [user for user in users if _is_active_user(user)]
-    non_active_users = [user for user in users if not _is_active_user(user)]
+    active_users = [user for user in users if kos_api.is_active_or_hiatus(user)]
+    non_active_users = [user for user in users if not kos_api.is_active_or_hiatus(user)]
     return active_users, non_active_users
 
 
@@ -373,7 +364,7 @@ def _run_group_remediation(
     admin_service: object,
     missing_all_groups: list[dict],
 ) -> None:
-    if not _yes_no_prompt("Add eligible users to their missing groups now?", default=False):
+    if not yes_no_prompt("Add eligible users to their missing groups now?", default=False):
         print("Skipped group remediation.")
         return
 

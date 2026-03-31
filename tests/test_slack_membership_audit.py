@@ -1,13 +1,12 @@
+from services.kos_api import is_active_or_hiatus
 from slack_membership_audit import (
     SlackAuditOverrides,
     _build_kos_email_index,
-    _build_kos_first_name_index,
     _build_kos_id_index,
-    _build_kos_last_name_index,
     _build_kos_name_index,
+    _build_kos_name_related_indexes,
     _email_variants_for_matching,
     _is_human_slack_user,
-    _is_kos_active_or_hiatus,
     _map_slack_user_to_kos,
     _normalize_email,
     _normalize_name,
@@ -43,8 +42,8 @@ def test_map_slack_user_prefers_email_exact_match():
         kos_id_index=_build_kos_id_index(kos_users),
         kos_email_index=_build_kos_email_index(kos_users),
         kos_name_index=_build_kos_name_index(kos_users),
-        kos_last_name_index=_build_kos_last_name_index(kos_users),
-        kos_first_name_index=_build_kos_first_name_index(kos_users),
+        kos_last_name_index=_build_kos_name_related_indexes(kos_users)[1],
+        kos_first_name_index=_build_kos_name_related_indexes(kos_users)[2],
         overrides=SlackAuditOverrides(set(), set(), {}, {}),
     )
 
@@ -69,8 +68,8 @@ def test_map_slack_user_falls_back_to_name_exact_when_email_missing():
         kos_id_index=_build_kos_id_index(kos_users),
         kos_email_index=_build_kos_email_index(kos_users),
         kos_name_index=_build_kos_name_index(kos_users),
-        kos_last_name_index=_build_kos_last_name_index(kos_users),
-        kos_first_name_index=_build_kos_first_name_index(kos_users),
+        kos_last_name_index=_build_kos_name_related_indexes(kos_users)[1],
+        kos_first_name_index=_build_kos_name_related_indexes(kos_users)[2],
         overrides=SlackAuditOverrides(set(), set(), {}, {}),
     )
 
@@ -96,8 +95,8 @@ def test_map_slack_user_reports_ambiguous_name():
         kos_id_index=_build_kos_id_index(kos_users),
         kos_email_index=_build_kos_email_index(kos_users),
         kos_name_index=_build_kos_name_index(kos_users),
-        kos_last_name_index=_build_kos_last_name_index(kos_users),
-        kos_first_name_index=_build_kos_first_name_index(kos_users),
+        kos_last_name_index=_build_kos_name_related_indexes(kos_users)[1],
+        kos_first_name_index=_build_kos_name_related_indexes(kos_users)[2],
         overrides=SlackAuditOverrides(set(), set(), {}, {}),
     )
 
@@ -106,10 +105,10 @@ def test_map_slack_user_reports_ambiguous_name():
     assert [candidate["id"] for candidate in ambiguous] == [1, 2]
 
 
-def test_is_kos_active_or_hiatus():
-    assert _is_kos_active_or_hiatus({"status": "active"}) is True
-    assert _is_kos_active_or_hiatus({"status": "hiatus"}) is True
-    assert _is_kos_active_or_hiatus({"status": "inactive"}) is False
+def test_is_active_or_hiatus():
+    assert is_active_or_hiatus({"status": "active"}) is True
+    assert is_active_or_hiatus({"status": "hiatus"}) is True
+    assert is_active_or_hiatus({"status": "inactive"}) is False
 
 
 def test_email_variants_support_plus_addressing_and_kwartzlab_prefix():
@@ -141,8 +140,8 @@ def test_map_slack_user_supports_manual_override_by_user_id():
         kos_id_index=_build_kos_id_index(kos_users),
         kos_email_index=_build_kos_email_index(kos_users),
         kos_name_index=_build_kos_name_index(kos_users),
-        kos_last_name_index=_build_kos_last_name_index(kos_users),
-        kos_first_name_index=_build_kos_first_name_index(kos_users),
+        kos_last_name_index=_build_kos_name_related_indexes(kos_users)[1],
+        kos_first_name_index=_build_kos_name_related_indexes(kos_users)[2],
         overrides=overrides,
     )
 
@@ -165,8 +164,8 @@ def test_map_slack_user_low_confidence_unique_last_name_variant_first():
         kos_id_index=_build_kos_id_index(kos_users),
         kos_email_index=_build_kos_email_index(kos_users),
         kos_name_index=_build_kos_name_index(kos_users),
-        kos_last_name_index=_build_kos_last_name_index(kos_users),
-        kos_first_name_index=_build_kos_first_name_index(kos_users),
+        kos_last_name_index=_build_kos_name_related_indexes(kos_users)[1],
+        kos_first_name_index=_build_kos_name_related_indexes(kos_users)[2],
         overrides=SlackAuditOverrides(set(), set(), {}, {}),
     )
 
@@ -195,8 +194,8 @@ def test_map_slack_user_low_confidence_first_name_plus_last_initials():
         kos_id_index=_build_kos_id_index(kos_users),
         kos_email_index=_build_kos_email_index(kos_users),
         kos_name_index=_build_kos_name_index(kos_users),
-        kos_last_name_index=_build_kos_last_name_index(kos_users),
-        kos_first_name_index=_build_kos_first_name_index(kos_users),
+        kos_last_name_index=_build_kos_name_related_indexes(kos_users)[1],
+        kos_first_name_index=_build_kos_name_related_indexes(kos_users)[2],
         overrides=SlackAuditOverrides(set(), set(), {}, {}),
     )
 

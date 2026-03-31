@@ -35,12 +35,10 @@ class UserCacheManager:
                 users = await asyncio.to_thread(get_users, self.config)
 
                 for user in users["members"]:
-                    self.users_cache[user["id"]] = user["profile"]["real_name"]
-
-                # Reset authorized users to handle deauthorizations
-                self.authorized_users = set()
+                    self.users_cache[user["id"]] = (user.get("profile") or {}).get("real_name") or user["id"]
 
                 while True:
+                    new_authorized: set = set()
                     for group_id in self.config.authorized_usergroups:
                         try:
                             authorized_users = await asyncio.to_thread(get_user_group, self.config, group_id)
@@ -48,12 +46,13 @@ class UserCacheManager:
                             logger.error("Failed to fetch user group %s: %s", group_id, str(e))
                             continue
                         for user_id in authorized_users.get("users", []):
-                            self.authorized_users.add(user_id)
+                            new_authorized.add(user_id)
 
                     for user_id in self.config.authorized_users:
-                        self.authorized_users.add(user_id)
+                        new_authorized.add(user_id)
 
-                    if self.authorized_users:
+                    if new_authorized:
+                        self.authorized_users = new_authorized
                         break
 
                     logger.warning("No authorized users found; retrying in 10 seconds.")

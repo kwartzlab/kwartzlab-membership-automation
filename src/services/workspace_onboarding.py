@@ -9,12 +9,12 @@ from services.google_admin import (
     generate_workspace_primary_email_candidates,
     list_workspace_recovery_email_index,
     list_workspace_user_emails,
+    normalize_workspace_domain,
 )
 
 logger = logging.getLogger(__name__)
 
 LOCAL_PART_SANITIZE_PATTERN = re.compile(r"[^a-z0-9]+")
-ACTIVE_KOS_STATUSES = {"active", "hiatus"}
 
 
 def collect_missing_workspace_users(
@@ -27,7 +27,7 @@ def collect_missing_workspace_users(
         return []
 
     users = kos_client.list_users()
-    active_users = [user for user in users if _is_active_or_hiatus_user(user)]
+    active_users = [user for user in users if kos_api.is_active_or_hiatus(user)]
     workspace_users = list_workspace_user_emails(
         admin_service,
         domain=workspace_domain,
@@ -165,24 +165,13 @@ def create_workspace_account_for_user(
     }
 
 
-def _is_active_or_hiatus_user(user: dict) -> bool:
-    return str(user.get("status") or "").strip().lower() in ACTIVE_KOS_STATUSES
-
-
-def _normalize_workspace_domain(domain: str) -> str:
-    clean_domain = domain.strip().lstrip("@").lower()
-    if "." not in clean_domain:
-        clean_domain = f"{clean_domain}.ca"
-    return clean_domain
-
-
 def _normalize_workspace_email_for_match(email: str, workspace_domain: str) -> str:
     value = (email or "").strip().lower()
     if "@" not in value:
         return ""
 
     local_part, domain_part = value.rsplit("@", 1)
-    normalized_domain = _normalize_workspace_domain(workspace_domain)
+    normalized_domain = normalize_workspace_domain(workspace_domain)
     if domain_part != normalized_domain:
         return ""
 

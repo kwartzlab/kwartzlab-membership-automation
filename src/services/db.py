@@ -84,7 +84,7 @@ def get_thread_ts_by_compact(conn, thread_ts_compact: str) -> str | None:
     return result[0] if result else None
 
 
-def get_applicant_user_id_by_thread_ts(conn, thread_ts: str) -> str:
+def get_applicant_user_id_by_thread_ts(conn, thread_ts: str) -> str | None:
     result = conn.execute(
         GET_APPLICANT_USER_ID_BY_THREAD_TS_SQL,
         {"thread_ts": thread_ts},
@@ -160,6 +160,6 @@ def get_thread_events(conn, thread_ts: str) -> list[dict]:
 def has_email_sent(conn, thread_ts: str, email_type: str) -> bool:
     result = conn.execute(
         HAS_EMAIL_SENT_SQL,
-        {"thread_ts": thread_ts, "email_type": f'%"email_type": "{email_type}"%'},
+        {"thread_ts": thread_ts, "email_type": email_type},
     ).fetchone()
     return result is not None

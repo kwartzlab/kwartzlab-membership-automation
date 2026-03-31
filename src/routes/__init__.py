@@ -24,6 +24,7 @@ def make_app(services: Services):
 
         tasks: list[asyncio.Task] = []
         await asyncio.to_thread(db.create_slack_tables, services.slack_db_engine)
+        await asyncio.to_thread(db.seed_user_status_cursor, services.slack_db_engine, services.kos_api_client)
 
         tasks.append(
             asyncio.create_task(

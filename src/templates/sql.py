@@ -129,6 +129,24 @@ GET_FORM_SUBMISSION_ID_BY_THREAD_TS_SQL = text("""
     LIMIT 1
 """)
 
+CREATE_KV_STORE_TABLE_SQL = text("""
+    CREATE TABLE IF NOT EXISTS kv_store (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+""")
+
+GET_KV_SQL = text("SELECT value FROM kv_store WHERE key = :key LIMIT 1")
+
+UPSERT_KV_SQL = text("""
+    INSERT INTO kv_store (key, value, updated_at)
+    VALUES (:key, :value, CURRENT_TIMESTAMP)
+    ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        updated_at = CURRENT_TIMESTAMP
+""")
+
 HAS_EMAIL_SENT_SQL = text("""
     SELECT 1
     FROM audit_log

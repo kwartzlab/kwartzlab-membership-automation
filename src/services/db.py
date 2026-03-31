@@ -7,9 +7,11 @@ from sqlalchemy.engine import Engine
 from templates.sql import (
     CREATE_AUDIT_LOG_TABLE_SQL,
     CREATE_INTERVIEW_ANSWERS_SLACK_MODAL_TABLE_SQL,
+    CREATE_KV_STORE_TABLE_SQL,
     CREATE_SLACK_THREAD_EVENTS_TABLE_SQL,
     GET_APPLICANT_USER_ID_BY_THREAD_TS_SQL,
     GET_FORM_SUBMISSION_ID_BY_THREAD_TS_SQL,
+    GET_KV_SQL,
     GET_MODAL_BLOCKS_PAYLOAD_SQL,
     GET_THREAD_EVENTS_SQL,
     GET_THREAD_TS_BY_COMPACT_SQL,
@@ -18,6 +20,7 @@ from templates.sql import (
     INSERT_AUDIT_LOG_SQL,
     INSERT_INTERVIEW_ANSWERS_SLACK_MODAL_SQL,
     INSERT_SLACK_EVENT_SQL,
+    UPSERT_KV_SQL,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,6 +47,7 @@ def _create_slack_tables(conn) -> None:
     conn.execute(CREATE_SLACK_THREAD_EVENTS_TABLE_SQL)
     conn.execute(CREATE_INTERVIEW_ANSWERS_SLACK_MODAL_TABLE_SQL)
     conn.execute(CREATE_AUDIT_LOG_TABLE_SQL)
+    conn.execute(CREATE_KV_STORE_TABLE_SQL)
 
 
 def _ensure_slack_thread_event_compact_ts(conn) -> None:
@@ -155,6 +159,35 @@ def get_thread_events(conn, thread_ts: str) -> list[dict]:
         {"thread_ts": thread_ts},
     ).fetchall()
     return [dict(row._mapping) for row in rows]
+
+
+USER_STATUS_CURSOR_KEY = "last_user_status_id"
+
+
+def seed_user_status_cursor(engine_or_conn, kos_api_client) -> None:
+    """On first boot, seed the cursor to the current latest id so we skip historical records."""
+
+    def _seed(conn):
+        if get_kv(conn, USER_STATUS_CURSOR_KEY) is not None:
+            return
+        latest_id = kos_api_client.get_latest_user_status_id()
+        set_kv(conn, USER_STATUS_CURSOR_KEY, str(latest_id + 1))
+        logger.info("Seeded user status cursor at id=%s", latest_id)
+
+    if isinstance(engine_or_conn, Engine):
+        with engine_or_conn.begin() as conn:
+            _seed(conn)
+    else:
+        _seed(engine_or_conn)
+
+
+def get_kv(conn, key: str, default: str | None = None) -> str | None:
+    result = conn.execute(GET_KV_SQL, {"key": key}).fetchone()
+    return result[0] if result else default
+
+
+def set_kv(conn, key: str, value: str) -> None:
+    conn.execute(UPSERT_KV_SQL, {"key": key, "value": value})
 
 
 def has_email_sent(conn, thread_ts: str, email_type: str) -> bool:

@@ -80,6 +80,23 @@ class KosApiClient:
             users.extend(page_users)
         return users
 
+    def get_next_user_status(self, status_id: int) -> Optional[dict]:
+        response = self._request("get", f"/api/user_statuses?status_id={status_id}", allow_statuses={204})
+        if response.status_code == 204:
+            return None
+        return response.json()
+
+    def get_upcoming_user_statuses(self, days: int = 7) -> list[dict]:
+        payload = self._request_json("get", f"/api/user_statuses/upcoming?days={days}")
+        if isinstance(payload, list):
+            return payload
+        return payload.get("data", [])
+
+    def get_latest_user_status_id(self) -> int:
+        """Return the id of the most recent user status record, or 0 if none exist."""
+        payload = self._get_json("/api/user_statuses/latest")
+        return int(payload.get("id", 0)) if payload else 0
+
     def get_next_outbox(self) -> Optional[dict]:
         response = self._request("get", "/api/form_submissions/outbox/next", allow_statuses={404})
         if response.status_code in (204, 404):

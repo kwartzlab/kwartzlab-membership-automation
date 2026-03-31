@@ -53,6 +53,7 @@ def cfg(tmp_path, slack_db_engine):
         token_file=str(tmp_path / "token.json"),
         google_admin_token_file=str(tmp_path / "token_admin.json"),
         google_workspace_domain="kwartzlab",
+        google_workspace_groups=[],
         poll_interval_seconds=1,
         environment="test",
         debug=False,

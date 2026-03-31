@@ -44,6 +44,7 @@ class Config:
     token_file: str
     google_admin_token_file: str
     google_workspace_domain: Optional[str]
+    google_workspace_groups: list[str]
 
     # Worker behavior
     poll_interval_seconds: int
@@ -96,6 +97,9 @@ def load_config() -> Config:
         token_file=resolve_path(getenv("TOKEN_FILE", "token.json")),
         google_admin_token_file=resolve_path(getenv("GOOGLE_ADMIN_TOKEN_FILE", "token_admin.json")),
         google_workspace_domain=getenv("GOOGLE_WORKSPACE_DOMAIN"),
+        google_workspace_groups=[
+            g.strip() for g in (getenv("GOOGLE_WORKSPACE_GROUPS", "") or "").replace(",", " ").split() if g.strip()
+        ],
         archive_gdrive_url=getenv("ARCHIVE_GDRIVE_URL"),
         # API Service
         port=int(getenv("PORT", 8080)),

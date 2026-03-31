@@ -182,6 +182,20 @@ def create_workspace_user(
     return admin_directory_service.users().insert(body=user_insert_body).execute()
 
 
+def reset_workspace_user_password(
+    admin_directory_service: object,
+    *,
+    user_email: str,
+    new_password: str,
+    change_password_at_next_login: bool = True,
+) -> dict[str, Any]:
+    body = {
+        "password": new_password,
+        "changePasswordAtNextLogin": change_password_at_next_login,
+    }
+    return admin_directory_service.users().update(userKey=user_email, body=body).execute()
+
+
 def add_user_to_group(
     admin_directory_service: object,
     *,

@@ -222,3 +222,34 @@ REJECTION_EMAIL = Email(
         </p>
         """
 )
+
+WORKSPACE_CREDENTIALS_EMAIL = Email(
+    subject="Your Kwartzlab Google Workspace account details",
+    body=(
+        "<p>Hi {first_name},</p>"
+        "<p>Your Kwartzlab Google Workspace account has been created.</p>"
+        "<p>"
+        "<b>Name:</b> {full_name}<br/>"
+        "<b>Username:</b> {workspace_email}<br/>"
+        "<b>Temporary password:</b> {initial_password}"
+        "</p>"
+        "<p>For security, you will be required to change your password on first login.</p>"
+        "<p>Please let us know if you have any issues.</p>"
+        "<p><b>Kwartzlab Membership Team</b></p>"
+    ),
+)
+
+WORKSPACE_PASSWORD_RESET_EMAIL = Email(
+    subject="Your Kwartzlab Google Workspace password has been reset",
+    body=(
+        "<p>Hi {first_name},</p>"
+        "<p>Your Kwartzlab Google Workspace password has been reset.</p>"
+        "<p>"
+        "<b>Username:</b> {workspace_email}<br/>"
+        "<b>Temporary password:</b> {initial_password}"
+        "</p>"
+        "<p>For security, you will be required to change your password on first login.</p>"
+        "<p>Please let us know if you have any issues.</p>"
+        "<p><b>Kwartzlab Membership Team</b></p>"
+    ),
+)

@@ -1,6 +1,8 @@
 import base64
+import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html import escape
 from pathlib import Path
 
 from google.auth.transport.requests import Request
@@ -10,6 +12,8 @@ from googleapiclient.discovery import build
 
 import services.kos_api as kos_api
 from templates import email_templates
+
+logger = logging.getLogger(__name__)
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.send",
@@ -218,4 +222,91 @@ def build_rejection_email(
         signature_role=signature_role,
         bcc_self=bcc_self,
         reply_to=reply_to,
+    )
+
+
+def _build_workspace_email(
+    user: dict,
+    *,
+    workspace_email: str,
+    initial_password: str,
+    tmpl: email_templates.Email,
+) -> tuple[str, str]:
+    html_vars = {
+        "first_name": escape(kos_api.get_user_first_name(user, default="there")),
+        "full_name": escape(kos_api.get_user_full_name(user, default="there")),
+        "workspace_email": escape(workspace_email),
+        "initial_password": escape(initial_password),
+    }
+    return tmpl.subject, tmpl.body.format(**html_vars)
+
+
+def _send_workspace_email(
+    user: dict,
+    *,
+    workspace_email: str,
+    initial_password: str,
+    gmail_service,
+    tmpl: email_templates.Email,
+    log_label: str,
+) -> dict:
+    if gmail_service is None:
+        return {"ok": False, "reason": "no_gmail_service"}
+
+    recipient = str(user.get("email") or "").strip()
+    if not recipient:
+        return {"ok": False, "reason": "no_kos_email"}
+
+    subject, body = _build_workspace_email(
+        user, workspace_email=workspace_email, initial_password=initial_password, tmpl=tmpl
+    )
+    try:
+        message = build_group_html_message(
+            to=recipient,
+            subject=subject,
+            text_body=body,
+            html_body=body,
+            from_name=MEMBERSHIP_GROUP_FROM_NAME,
+            from_email=MEMBERSHIP_GROUP_FROM_EMAIL,
+            reply_to=MEMBERSHIP_GROUP_REPLY_TO,
+            bcc=MEMBERSHIP_GROUP_FROM_EMAIL,
+        )
+        send_message(service=gmail_service, user_id=SENDER_USER_ID, message=message)
+        return {"ok": True, "recipient": recipient}
+    except Exception as exc:
+        logger.exception("Failed to send %s to %s.", log_label, recipient)
+        return {"ok": False, "reason": str(exc)}
+
+
+def send_workspace_credentials_email(
+    user: dict,
+    *,
+    workspace_email: str,
+    initial_password: str,
+    gmail_service,
+) -> dict:
+    return _send_workspace_email(
+        user,
+        workspace_email=workspace_email,
+        initial_password=initial_password,
+        gmail_service=gmail_service,
+        tmpl=email_templates.WORKSPACE_CREDENTIALS_EMAIL,
+        log_label="workspace credentials email",
+    )
+
+
+def send_workspace_password_reset_email(
+    user: dict,
+    *,
+    workspace_email: str,
+    new_password: str,
+    gmail_service,
+) -> dict:
+    return _send_workspace_email(
+        user,
+        workspace_email=workspace_email,
+        initial_password=new_password,
+        gmail_service=gmail_service,
+        tmpl=email_templates.WORKSPACE_PASSWORD_RESET_EMAIL,
+        log_label="workspace password reset email",
     )

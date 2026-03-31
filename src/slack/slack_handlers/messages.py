@@ -1,8 +1,10 @@
 import json
 
+from slack.slack_handlers.utils import is_message_channel_type
+
 
 def register_message_handler(app, cfg, runtime, queue):
-    @app.event("message")
+    @app.event("message", matchers=[is_message_channel_type("im", invert=True)])
     async def on_message(event, body):
         if event.get("subtype") == "bot_message":
             return

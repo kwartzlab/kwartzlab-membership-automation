@@ -60,7 +60,7 @@ def register_archive_shortcut_handler(app, cfg, runtime):
         user_id = body.get("user", {}).get("id")
         channel_id = body.get("channel", {}).get("id")
         thread_ts = body.get("message", {}).get("thread_ts") or body.get("message", {}).get("ts")
-        if getattr(cfg, "slack_channel_id", None) and channel_id != cfg.slack_channel_id:
+        if channel_id != cfg.slack_channel_id:
             send_ephemeral_message(
                 cfg=cfg,
                 channel=channel_id,

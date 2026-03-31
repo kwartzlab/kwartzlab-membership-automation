@@ -26,7 +26,10 @@ def register_dm_handler(app, cfg, runtime):
 
         lowered = text.lower()
         if lowered in {"help", "dm help"}:
-            await say(f"DM workflows:\n{onboarding_help_text()}\n\n{email_dm_help_text()}\n\n{audit_dm_help_text()}\n\n{archive_dm_help_text()}")
+            sections = "\n\n".join([
+                onboarding_help_text(), email_dm_help_text(), audit_dm_help_text(), archive_dm_help_text()
+            ])
+            await say(f"DM workflows:\n{sections}")
             return
 
         if lowered.startswith("onboard"):

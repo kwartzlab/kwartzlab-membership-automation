@@ -1,5 +1,5 @@
+from services.kos_api import is_active_or_hiatus
 from workspace_membership_audit import (
-    _is_active_user,
     _normalize_email_for_match,
     _resolve_workspace_match,
     _split_missing_group_results,
@@ -16,11 +16,11 @@ def test_load_workspace_audit_config_parses_groups(monkeypatch):
     assert cfg.google_workspace_groups == ["members@kwartzlab.ca", "announce@kwartzlab.ca"]
 
 
-def test_is_active_user():
-    assert _is_active_user({"status": "active"}) is True
-    assert _is_active_user({"status": "ACTIVE"}) is True
-    assert _is_active_user({"status": "inactive"}) is False
-    assert _is_active_user({"status": None}) is False
+def test_is_active_or_hiatus():
+    assert is_active_or_hiatus({"status": "active"}) is True
+    assert is_active_or_hiatus({"status": "ACTIVE"}) is True
+    assert is_active_or_hiatus({"status": "inactive"}) is False
+    assert is_active_or_hiatus({"status": None}) is False
 
 
 def test_split_missing_group_results():

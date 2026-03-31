@@ -134,6 +134,6 @@ HAS_EMAIL_SENT_SQL = text("""
     FROM audit_log
     WHERE action = 'email_sent'
       AND thread_ts = :thread_ts
-      AND metadata LIKE :email_type
+      AND json_extract(metadata, '$.email_type') = :email_type
     LIMIT 1
 """)

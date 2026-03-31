@@ -81,7 +81,7 @@ def upload_file_to_drive(
     file_path = Path(file_path)
     service = get_drive_service(credentials_file, token_file)
     metadata = {"name": file_path.name, "parents": [folder_id]}
-    media = MediaFileUpload(str(file_path), mimetype="application/json")
+    media = MediaFileUpload(str(file_path), mimetype="text/csv")
     created = (
         service.files()
         .create(

@@ -9,9 +9,8 @@ def register_message_handler(app, cfg, runtime, queue):
         if event.get("subtype") == "bot_message":
             return
 
-        if getattr(cfg, "slack_channel_id", None):
-            if event.get("channel") != cfg.slack_channel_id:
-                return
+        if event.get("channel") != cfg.slack_channel_id:
+            return
 
         if event.get("subtype") in (None, "message_replied"):
             event_type = "post" if not event.get("thread_ts") else "reply"

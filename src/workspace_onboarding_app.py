@@ -20,11 +20,12 @@ from services.google_admin import (
     get_admin_directory_service,
     list_workspace_recovery_email_index,
     list_workspace_user_emails,
+    normalize_workspace_domain,
 )
+from utils.cli import yes_no_prompt
 
 logger = logging.getLogger(__name__)
 LOCAL_PART_SANITIZE_PATTERN = re.compile(r"[^a-z0-9]+")
-ACTIVE_KOS_STATUSES = {"active", "hiatus"}
 
 
 @dataclass(frozen=True)
@@ -103,37 +104,13 @@ def resolve_runtime_options(args: argparse.Namespace) -> RuntimeOptions:
     )
 
 
-def _yes_no_prompt(prompt: str, default: bool = False) -> bool:
-    suffix = "[Y/n]" if default else "[y/N]"
-    while True:
-        value = input(f"{prompt} {suffix}: ").strip().lower()
-        if not value:
-            return default
-        if value in {"y", "yes"}:
-            return True
-        if value in {"n", "no"}:
-            return False
-        print("Please answer y or n.")
-
-
-def _is_active_or_hiatus_user(user: dict) -> bool:
-    return str(user.get("status") or "").strip().lower() in ACTIVE_KOS_STATUSES
-
-
-def _normalize_workspace_domain(domain: str) -> str:
-    clean_domain = domain.strip().lstrip("@").lower()
-    if "." not in clean_domain:
-        clean_domain = f"{clean_domain}.ca"
-    return clean_domain
-
-
 def _normalize_workspace_email_for_match(email: str, workspace_domain: str) -> str:
     value = (email or "").strip().lower()
     if "@" not in value:
         return ""
 
     local_part, domain_part = value.rsplit("@", 1)
-    normalized_domain = _normalize_workspace_domain(workspace_domain)
+    normalized_domain = normalize_workspace_domain(workspace_domain)
     if domain_part != normalized_domain:
         return ""
 
@@ -207,7 +184,7 @@ def _run_missing_workspace_account_precheck(
     kos_client: kos_api.KosApiClient,
     admin_service: object,
 ) -> None:
-    if not _yes_no_prompt(
+    if not yes_no_prompt(
         "Check active/hiatus kOS users for missing matching Workspace accounts first?",
         default=False,
     ):
@@ -215,7 +192,7 @@ def _run_missing_workspace_account_precheck(
 
     print("Running pre-check for users without matching Workspace accounts...")
     users = kos_client.list_users()
-    active_users = [user for user in users if _is_active_or_hiatus_user(user)]
+    active_users = [user for user in users if kos_api.is_active_or_hiatus(user)]
     print(f"Loaded {len(users)} users from kOS; active/hiatus considered: {len(active_users)}")
 
     workspace_users = list_workspace_user_emails(
@@ -438,7 +415,7 @@ def _create_workspace_account(
         print(json.dumps({"would_create": draft.user_insert_body}, indent=2, ensure_ascii=True))
         return True, False
 
-    if not _yes_no_prompt("Create this Google Workspace account now?", default=False):
+    if not yes_no_prompt("Create this Google Workspace account now?", default=False):
         print("Skipped account creation.")
         return False, False
 
@@ -542,7 +519,7 @@ def _send_welcome_email(
     if runtime_options.dry_run_account and not account_created:
         print("Note: account creation was skipped in dry-run mode; only email sending will be tested.")
 
-    if not _yes_no_prompt(f"Send this email to {recipient} now?", default=True):
+    if not yes_no_prompt(f"Send this email to {recipient} now?", default=True):
         print("Skipped email send.")
         return gmail_service
 

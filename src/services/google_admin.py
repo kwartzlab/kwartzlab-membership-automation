@@ -79,7 +79,7 @@ def _normalize_name_component_hyphenated(value: str) -> str:
     return "".join(allowed)
 
 
-def _normalize_domain(domain: str) -> str:
+def normalize_workspace_domain(domain: str) -> str:
     clean_domain = domain.strip().lstrip("@").lower()
     if "." not in clean_domain:
         clean_domain = f"{clean_domain}.ca"
@@ -109,7 +109,7 @@ def generate_workspace_primary_email_candidates(kos_user: dict[str, Any], domain
     if not first_name or not last_name:
         raise ValueError("kOS user is missing first or last name required for Workspace email generation.")
 
-    clean_domain = _normalize_domain(domain)
+    clean_domain = normalize_workspace_domain(domain)
     candidates = [
         f"{first_name}.{last_name}@{clean_domain}",
         f"{first_name}{last_name}@{clean_domain}",
@@ -219,7 +219,7 @@ def list_workspace_user_emails(
 ) -> set[str]:
     user_emails: set[str] = set()
     page_token: str | None = None
-    clean_domain = _normalize_domain(domain) if domain else None
+    clean_domain = normalize_workspace_domain(domain) if domain else None
 
     while True:
         response = (
@@ -291,7 +291,7 @@ def list_workspace_recovery_email_index(
 ) -> dict[str, set[str]]:
     recovery_to_primary: dict[str, set[str]] = {}
     page_token: str | None = None
-    clean_domain = _normalize_domain(domain) if domain else None
+    clean_domain = normalize_workspace_domain(domain) if domain else None
 
     while True:
         response = (

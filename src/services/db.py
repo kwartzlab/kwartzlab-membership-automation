@@ -196,6 +196,26 @@ def seed_user_status_cursor(engine_or_conn, kos_api_client) -> None:
         _seed(engine_or_conn)
 
 
+def poll_user_status_changes(engine_or_conn, kos_api_client) -> list[dict]:
+    """Fetch all new user status records since the cursor, advancing it to the current latest.
+
+    Handles non-contiguous IDs by always advancing to latest_id + 1.
+    """
+
+    def _poll(conn):
+        cursor_id = int(get_kv(conn, USER_STATUS_CURSOR_KEY, "0") or "0")
+        statuses, new_cursor = kos_api_client.poll_user_statuses(cursor_id)
+        if new_cursor != cursor_id:
+            set_kv(conn, USER_STATUS_CURSOR_KEY, str(new_cursor))
+            logger.debug("Advanced user status cursor %s -> %s (%d statuses)", cursor_id, new_cursor, len(statuses))
+        return statuses
+
+    if isinstance(engine_or_conn, Engine):
+        with engine_or_conn.begin() as conn:
+            return _poll(conn)
+    return _poll(engine_or_conn)
+
+
 def get_kv(conn, key: str, default: str | None = None) -> str | None:
     result = conn.execute(GET_KV_SQL, {"key": key}).fetchone()
     return result[0] if result else default

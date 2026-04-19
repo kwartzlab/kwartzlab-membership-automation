@@ -6,6 +6,7 @@ from fastapi import Depends, FastAPI
 
 import services.db as db
 from jobs.poller import poller_loop
+from jobs.status_poller import status_changes_loop, upcoming_statuses_loop
 from routes.archive import router as archive_router
 from routes.email import router as email_router
 from routes.health import router as health_router
@@ -31,6 +32,18 @@ def make_app(services: Services):
                 poller_loop(
                     cfg=services.config, kos_api_client=services.kos_api_client, slack_engine=services.slack_db_engine
                 )
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                status_changes_loop(
+                    cfg=services.config, kos_api_client=services.kos_api_client, slack_engine=services.slack_db_engine
+                )
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                upcoming_statuses_loop(cfg=services.config, kos_api_client=services.kos_api_client)
             )
         )
 

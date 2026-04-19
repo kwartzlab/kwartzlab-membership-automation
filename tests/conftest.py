@@ -47,6 +47,8 @@ def cfg(tmp_path, slack_db_engine):
         slack_bot_token="xoxb-test",
         slack_app_token="xapp-test",
         slack_channel_id="C123",
+        slack_status_updates_channel_id="C456",
+        ignored_status_types=[],
         authorized_usergroups=[],
         authorized_users=[],
         credentials_file=str(tmp_path / "credentials.json"),

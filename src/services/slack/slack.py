@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import Connection
@@ -10,6 +11,7 @@ from services.db import (
     insert_interview_answers_slack_modal_row,
     insert_slack_event_row,
 )
+from services.kos_api import get_user_full_name
 from services.slack.slack_web import post_message_reply
 from utils.forms import applicant_data_to_dict
 
@@ -234,6 +236,77 @@ def post_application(cfg: config.Config, application_data) -> None:
     )
 
     return response
+
+
+def post_status_change(
+    cfg: config.Config,
+    status: dict,
+    user: dict | None,
+    slack_user_id: str | None,
+    updated_by_user: dict | None,
+) -> None:
+    if slack_user_id:
+        subject = f"<@{slack_user_id}>"
+    elif user:
+        subject = get_user_full_name(user, default=f"user #{status['user_id']}")
+    else:
+        subject = f"user #{status['user_id']}"
+
+    effective = _fmt_date(status.get("created_at"))
+    updater = get_user_full_name(updated_by_user) if updated_by_user else f"user #{status.get('updated_by')}"
+
+    lines = [
+        f"*Membership status change*",
+        f"{subject} — {status['status']}",
+    ]
+    if status.get("note"):
+        lines.append(f"Note: {status['note']}")
+    lines.append(f"Updated by: {updater}")
+    lines.append(f"Effective: {effective}")
+
+    post_message_reply(
+        cfg=cfg,
+        channel=cfg.slack_status_updates_channel_id,
+        text="\n".join(lines),
+    )
+
+
+def post_upcoming_statuses_digest(
+    cfg: config.Config,
+    statuses: list[dict],
+    users: dict[int, dict],
+    slack_id_by_kos_id: dict[int, str | None],
+) -> None:
+    if not statuses:
+        return
+
+    bullets = []
+    for s in statuses:
+        uid = s["user_id"]
+        slack_id = slack_id_by_kos_id.get(uid)
+        if slack_id:
+            name = f"<@{slack_id}>"
+        else:
+            name = get_user_full_name(users.get(uid), default=f"user #{uid}")
+        effective = _fmt_date(s.get("created_at"))
+        bullets.append(f"• {name} — {s['status']} ({effective})")
+
+    text = "*Upcoming membership status changes (next 7 days)*\n" + "\n".join(bullets)
+    post_message_reply(
+        cfg=cfg,
+        channel=cfg.slack_status_updates_channel_id,
+        text=text,
+    )
+
+
+def _fmt_date(iso: str | None) -> str:
+    if not iso:
+        return "unknown"
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(timezone.utc)
+        return dt.strftime("%b %-d, %Y")
+    except (ValueError, AttributeError):
+        return iso
 
 
 def add_default_reacts(cfg: config.Config, channel: str, timestamp: str) -> None:

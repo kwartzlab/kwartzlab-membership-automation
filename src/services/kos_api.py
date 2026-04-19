@@ -97,6 +97,26 @@ class KosApiClient:
         payload = self._get_json("/api/user_statuses/latest")
         return int(payload.get("id", 0)) if payload else 0
 
+    def poll_user_statuses(self, from_id: int) -> tuple[list[dict], int]:
+        """Fetch all statuses from from_id up to the current latest, returning (statuses, new_cursor).
+
+        IDs can be non-contiguous; this always advances to latest_id + 1 so gaps don't stall the cursor.
+        """
+        latest_id = self.get_latest_user_status_id()
+        if from_id > latest_id:
+            return [], from_id
+
+        statuses = []
+        current_id = from_id
+        while current_id <= latest_id:
+            status = self.get_next_user_status(current_id)
+            if status is None:
+                break
+            statuses.append(status)
+            current_id = int(status["id"]) + 1
+
+        return statuses, latest_id + 1
+
     def get_next_outbox(self) -> Optional[dict]:
         response = self._request("get", "/api/form_submissions/outbox/next", allow_statuses={404})
         if response.status_code in (204, 404):

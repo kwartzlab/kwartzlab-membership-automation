@@ -36,6 +36,7 @@ class Config:
     slack_bot_token: str
     slack_app_token: str
     slack_channel_id: str
+    slack_status_updates_channel_id: str
 
     authorized_usergroups: list[str]
     authorized_users: list[str]
@@ -45,6 +46,9 @@ class Config:
     google_admin_token_file: str
     google_workspace_domain: Optional[str]
     google_workspace_groups: list[str]
+
+    # Status updates filtering
+    ignored_status_types: list[str]
 
     # Worker behavior
     poll_interval_seconds: int
@@ -82,6 +86,7 @@ def load_config() -> Config:
         slack_bot_token=getenv("SLACK_BOT_TOKEN", required=True),
         slack_channel_id=getenv("SLACK_CHANNEL_ID", required=True),
         slack_app_token=getenv("SLACK_APP_TOKEN", required=True),
+        slack_status_updates_channel_id=getenv("SLACK_STATUS_UPDATES_CHANNEL_ID", required=True),
         # Default to BoD slack usergroup
         authorized_usergroups=[g for g in getenv("AUTHORIZED_USERGROUPS", "SDFB4PKGE").split(" ") if g],
         authorized_users=[u for u in getenv("AUTHORIZED_USERS", "").split(" ") if u],
@@ -89,6 +94,7 @@ def load_config() -> Config:
         kos_api_base_url=getenv("KOS_API_BASE_URL", required=True),
         kos_api_token=getenv("KOS_API_TOKEN", required=True),
         kos_api_timeout_seconds=int(getenv("KOS_API_TIMEOUT_SECONDS", "10")),
+        ignored_status_types=[s for s in getenv("IGNORED_STATUS_TYPES", "").split() if s],
         poll_interval_seconds=int(getenv("POLL_INTERVAL_SECONDS", "30")),
         # SQLite db
         sqlite_db_path=resolve_path(getenv("SQLITE_DB_PATH", "./database/slack_threads.db")),
